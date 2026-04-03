@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  bot:
+    build:
+      context: .
+      target: deps
+    command: npx nodemon src/index.js
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - bot-logs:/app/logs
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+
+volumes:
+  bot-logs:
+    driver: local
