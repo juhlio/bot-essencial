@@ -1,5 +1,7 @@
 const logger = require('../utils/logger');
+const { RedisSessionStore } = require('./redisSessionStore');
 
+// ─── Memory implementation ───────────────────────────────────────────────────
 class SessionStore {
   constructor() {
     this.sessions = new Map();
@@ -113,5 +115,17 @@ class SessionStore {
   }
 }
 
-const sessionStore = new SessionStore();
+// ─── Export: Redis if REDIS_URL is set, otherwise in-memory ─────────────────
+let sessionStore;
+
+if (process.env.REDIS_URL) {
+  logger.info(`Usando Redis como session store: ${process.env.REDIS_URL}`);
+  const redisStore = new RedisSessionStore(process.env.REDIS_URL);
+  redisStore.connect();
+  sessionStore = redisStore;
+} else {
+  logger.info('Usando session store em memória');
+  sessionStore = new SessionStore();
+}
+
 module.exports = { sessionStore };
