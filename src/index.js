@@ -6,6 +6,7 @@ const { twiml: { MessagingResponse } } = require('twilio');
 const logger = require('./utils/logger');
 const { sessionStore } = require('./services/sessionStore');
 const { handleMessage } = require('./handlers/botHandler');
+const path = require('path');
 const { runMigrations } = require('./database/migrate');
 const { listLeads, countLeads } = require('./database/leadRepository');
 const { getStats, getLeadsPorDia, getFunil, getSegmentoDetalhado } = require('./database/dashboardRepository');
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use('/dashboard', express.static(path.join(__dirname, 'public')));
 
 // ─── GET /health ─────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
