@@ -60,3 +60,22 @@ CREATE INDEX IF NOT EXISTS idx_leads_is_icp      ON leads(is_icp);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_phone      ON sessions(phone_number);
 CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
+
+-- -----------------------------------------------------------------------------
+-- Tabela: message_templates
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS message_templates (
+  id          SERIAL PRIMARY KEY,
+  key         VARCHAR(50)   NOT NULL UNIQUE,
+  category    VARCHAR(30)   NOT NULL,
+  label       VARCHAR(100)  NOT NULL,
+  content     TEXT          NOT NULL,
+  variables   TEXT[]        DEFAULT '{}',
+  is_dynamic  BOOLEAN       NOT NULL DEFAULT false,
+  description TEXT,
+  updated_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by  VARCHAR(100)  DEFAULT 'system'
+);
+
+CREATE INDEX IF NOT EXISTS idx_msg_tpl_key      ON message_templates(key);
+CREATE INDEX IF NOT EXISTS idx_msg_tpl_category ON message_templates(category);
