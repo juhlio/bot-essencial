@@ -235,11 +235,29 @@ async function countLeads(filters = {}) {
   }
 }
 
+// ─── findLeadById ─────────────────────────────────────────────────────────────
+async function findLeadById(id) {
+  const pool = getPool();
+  if (!pool) {
+    logger.warn('findLeadById: banco indisponível');
+    return null;
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM leads WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  } catch (err) {
+    logger.error(`findLeadById error: ${err.message}`);
+    return null;
+  }
+}
+
 module.exports = {
   saveLead,
   saveSession,
   findLeadByPhone,
   findLeadByDocument,
+  findLeadById,
   listLeads,
   countLeads,
 };

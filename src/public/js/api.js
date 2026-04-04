@@ -39,9 +39,7 @@ const DashboardAPI = {
   },
 
   async getLeadById(id) {
-    const result = await this.getLeads({ limit: 200 });
-    const leads = result.leads ?? [];
-    return leads.find(l => l.id === Number(id)) ?? null;
+    return await this._get(`/api/leads/${id}`) ?? null;
   },
 
   async getHealth() {
