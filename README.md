@@ -12,6 +12,7 @@ Bot de atendimento via WhatsApp para qualificação de leads, construído com **
 - [Variáveis de Ambiente](#variáveis-de-ambiente)
 - [Rodando com Docker](#rodando-com-docker)
 - [Rodando com PostgreSQL](#rodando-com-postgresql)
+- [Dashboard](#dashboard)
 - [Endpoints](#endpoints)
 - [API de Consulta](#api-de-consulta)
 - [Fluxo de Atendimento](#fluxo-de-atendimento)
@@ -39,12 +40,20 @@ Leads fora do ICP (geradores < 50 kVA) são tratados separadamente com opção d
 essencial-bot/
 ├── src/
 │   ├── index.js                  # Servidor Express + endpoints
+│   ├── public/
+│   │   ├── index.html            # Dashboard web
+│   │   ├── css/style.css         # Estilos
+│   │   └── js/
+│   │       ├── api.js            # Chamadas à API
+│   │       ├── charts.js         # Gráficos Chart.js
+│   │       └── app.js            # Lógica principal
 │   ├── handlers/
 │   │   └── botHandler.js         # Máquina de estados do bot
 │   ├── database/
 │   │   ├── schema.sql            # Schema das tabelas
 │   │   ├── migrate.js            # Script de migração
-│   │   └── leadRepository.js     # CRUD de leads
+│   │   ├── leadRepository.js     # CRUD de leads
+│   │   └── dashboardRepository.js # Queries agregadas para o dashboard
 │   ├── services/
 │   │   ├── database.js           # Pool de conexão PostgreSQL
 │   │   ├── sessionStore.js       # Roteador memória/Redis
@@ -261,12 +270,55 @@ sudo certbot --nginx -d seu-dominio.com
 
 ---
 
+## Dashboard
+
+O bot inclui um dashboard web para visualizar leads e métricas em tempo real. Requer `DATABASE_URL` configurada.
+
+Acesse em: **`http://localhost:3000/dashboard`**
+
+### Funcionalidades
+
+- Cards com métricas consolidadas (total, ICP, por segmento, hoje / 7 dias / 30 dias)
+- Gráfico de leads por dia com seletor de período (7, 30 ou 90 dias)
+- Gráfico de distribuição por segmento (donut)
+- Funil de conversão (sessões → leads qualificados)
+- Tabela de leads com filtros por segmento, ICP e período + paginação
+- Modal com todos os dados coletados de cada lead
+- Exportação para CSV com filtros ativos (abre corretamente no Excel com acentos)
+- Auto-refresh de métricas a cada 60 segundos sem perder filtros da tabela
+- Indicador de status do banco e contador de sessões ativas no header
+
+### Exemplo rápido
+
+```bash
+# Subir com banco (necessário para o dashboard)
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+
+# Acessar o dashboard
+open http://localhost:3000/dashboard
+
+# Exportar todos os leads como CSV
+curl -o leads.csv http://localhost:3000/api/leads/export/csv
+
+# Exportar apenas leads ICP do segmento venda
+curl -o leads_venda_icp.csv "http://localhost:3000/api/leads/export/csv?segment=venda&is_icp=true"
+```
+
+---
+
 ## Endpoints
 
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/health` | Status do serviço, sessões ativas, banco e uptime |
+| `GET` | `/dashboard` | Dashboard web de leads e métricas |
 | `GET` | `/api/leads` | Lista leads com filtros e paginação |
+| `GET` | `/api/leads/:id` | Detalhes de um lead específico |
+| `GET` | `/api/leads/export/csv` | Exportar leads filtrados em CSV |
+| `GET` | `/api/dashboard/stats` | Métricas consolidadas |
+| `GET` | `/api/dashboard/leads-por-dia` | Leads por dia (últimos N dias, padrão 30) |
+| `GET` | `/api/dashboard/funil` | Dados do funil de conversão |
+| `GET` | `/api/dashboard/segmentos` | Breakdown por segmento |
 | `POST` | `/webhook` | Recebe mensagens do Twilio e retorna TwiML |
 | `POST` | `/status` | Callback de status de entrega do Twilio |
 
