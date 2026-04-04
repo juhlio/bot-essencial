@@ -6,6 +6,7 @@ const { twiml: { MessagingResponse } } = require('twilio');
 const logger = require('./utils/logger');
 const { sessionStore } = require('./services/sessionStore');
 const { handleMessage } = require('./handlers/botHandler');
+const { runMigrations } = require('./database/migrate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,11 +15,24 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 // ─── GET /health ─────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+  const db = require('./services/database');
+  let dbStatus = 'not_configured';
+
+  if (db.getPool()) {
+    try {
+      await db.query('SELECT 1');
+      dbStatus = 'connected';
+    } catch {
+      dbStatus = 'error';
+    }
+  }
+
   res.json({
     status: 'ok',
     service: 'essencial-energia-whatsapp-bot',
-    sessions: sessionStore.count(),
+    sessions: await sessionStore.count(),
+    database: dbStatus,
     uptime: process.uptime(),
   });
 });
@@ -57,16 +71,30 @@ app.post('/status', (req, res) => {
 });
 
 // ─── Limpeza periódica de sessões ────────────────────────────────────────────
-setInterval(() => {
-  const removed = sessionStore.cleanExpired();
+setInterval(async () => {
+  const removed = await sessionStore.cleanExpired();
   if (removed > 0) {
     logger.info(`Limpeza de sessões: ${removed} sessão(ões) expirada(s) removida(s)`);
   }
 }, 5 * 60 * 1000);
 
 // ─── Start ───────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  logger.info(`🚀 Essencial Bot rodando na porta ${PORT}`);
-  logger.info(`📱 Webhook URL: http://localhost:${PORT}/webhook`);
-  logger.info(`💚 Health check URL: http://localhost:${PORT}/health`);
-});
+async function startServer() {
+  if (process.env.DATABASE_URL) {
+    try {
+      await runMigrations();
+      logger.info('Migrações do banco executadas com sucesso');
+    } catch (err) {
+      logger.error(`Erro ao executar migrações: ${err.message}`);
+      logger.warn('Bot iniciando sem persistência no banco de dados');
+    }
+  }
+
+  app.listen(PORT, () => {
+    logger.info(`🚀 Essencial Bot rodando na porta ${PORT}`);
+    logger.info(`📱 Webhook URL: http://localhost:${PORT}/webhook`);
+    logger.info(`💚 Health check URL: http://localhost:${PORT}/health`);
+  });
+}
+
+startServer();
