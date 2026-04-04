@@ -79,14 +79,24 @@ body {
   font-size: 0.72rem;
   color: rgba(255,255,255,.5);
 }
+.header-sessions {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,.55);
+  white-space: nowrap;
+}
+#sessions-value {
+  font-weight: 700;
+  color: rgba(255,255,255,.8);
+}
 .btn-refresh {
   background: rgba(255,255,255,.1);
   border: 1px solid rgba(255,255,255,.2);
   color: rgba(255,255,255,.85);
   border-radius: var(--radius-sm);
-  padding: 0.35rem 0.65rem;
+  padding: 0.35rem 0.75rem;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
   transition: background var(--transition), color var(--transition);
 }
 .btn-refresh:hover {
@@ -94,6 +104,26 @@ body {
   border-color: var(--secondary);
   color: #fff;
 }
+.btn-refresh.is-spinning {
+  opacity: 0.7;
+  cursor: wait;
+  pointer-events: none;
+}
+
+/* ── Banner de alerta ────────────────────────────────────────────────────── */
+.alert-banner {
+  background: #fff3cd;
+  border-bottom: 2px solid var(--warning);
+  color: #856404;
+  text-align: center;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  position: sticky;
+  top: 64px;
+  z-index: 90;
+}
+.alert-banner[hidden] { display: none; }
 
 /* ── Badge de status ─────────────────────────────────────────────────────── */
 .badge {
@@ -511,6 +541,18 @@ body {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+@keyframes card-pulse {
+  0%   { box-shadow: var(--shadow-sm); }
+  40%  { box-shadow: 0 0 0 4px rgba(27,58,92,.18), var(--shadow); }
+  100% { box-shadow: var(--shadow-sm); }
+}
+.card--pulse {
+  animation: card-pulse 0.7s ease;
+}
+.card--pulse .card__value {
+  color: var(--secondary);
+  transition: color 0.4s ease;
+}
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 6px; height: 6px; }
@@ -523,6 +565,7 @@ body {
   .main { padding: 1rem; }
   .header-inner { padding: 0 1rem; }
   .last-update { display: none; }
+  .header-sessions { display: none; }
   .table-filters { flex-direction: column; align-items: stretch; }
   .input-sm, .select-sm, .btn-filter, .btn-export { width: 100%; }
 }

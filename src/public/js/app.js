@@ -20,6 +20,7 @@ let currentOffset = 0;
 const PAGE_LIMIT  = 20;
 let   activeFilters = {};
 let   allLeadsCache = [];   // cache da página atual para o modal
+let   prevCardValues = [];  // para detectar mudanças nos cards
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -61,24 +62,37 @@ function renderCards(stats) {
   const seg = s.por_segmento || {};
 
   const cards = [
-    { icon: '📊', label: 'Total de Leads',    value: s.total   ?? 0, mod: ''          },
-    { icon: '✅', label: 'Leads ICP',         value: s.icp     ?? 0, mod: 'success'   },
-    { icon: '⚠️', label: 'Fora do ICP',       value: s.fora_icp ?? 0, mod: 'danger'  },
-    { icon: '📅', label: 'Hoje',              value: s.hoje    ?? 0, mod: ''          },
-    { icon: '📆', label: 'Últimos 7 dias',    value: s.semana  ?? 0, mod: ''          },
-    { icon: '🗓️', label: 'Últimos 30 dias',   value: s.mes     ?? 0, mod: ''          },
-    { icon: '⚡', label: 'Venda',             value: seg.venda     ?? 0, mod: ''      },
-    { icon: '🔄', label: 'Locação',           value: seg.locacao   ?? 0, mod: 'secondary' },
-    { icon: '🔧', label: 'Manutenção',        value: seg.manutencao ?? 0, mod: 'success'  },
+    { icon: '📊', label: 'Total de Leads',    value: s.total        ?? 0, mod: ''          },
+    { icon: '✅', label: 'Leads ICP',         value: s.icp          ?? 0, mod: 'success'   },
+    { icon: '⚠️', label: 'Fora do ICP',       value: s.fora_icp     ?? 0, mod: 'danger'    },
+    { icon: '📅', label: 'Hoje',              value: s.hoje         ?? 0, mod: ''          },
+    { icon: '📆', label: 'Últimos 7 dias',    value: s.semana       ?? 0, mod: ''          },
+    { icon: '🗓️', label: 'Últimos 30 dias',   value: s.mes          ?? 0, mod: ''          },
+    { icon: '⚡', label: 'Venda',             value: seg.venda      ?? 0, mod: ''          },
+    { icon: '🔄', label: 'Locação',           value: seg.locacao    ?? 0, mod: 'secondary' },
+    { icon: '🔧', label: 'Manutenção',        value: seg.manutencao ?? 0, mod: 'success'   },
   ];
 
-  $('stats-cards').innerHTML = cards.map(c => `
-    <div class="card card--${c.mod}">
+  $('stats-cards').innerHTML = cards.map((c, i) => `
+    <div class="card card--${c.mod}" data-idx="${i}">
       <span class="card__icon">${c.icon}</span>
       <div class="card__value">${c.value}</div>
       <div class="card__label">${c.label}</div>
     </div>
   `).join('');
+
+  // Pulsar cards cujo valor mudou desde a última renderização
+  if (prevCardValues.length) {
+    document.querySelectorAll('#stats-cards .card[data-idx]').forEach(card => {
+      const idx = parseInt(card.dataset.idx);
+      if (prevCardValues[idx] !== undefined && prevCardValues[idx] !== cards[idx].value) {
+        card.classList.add('card--pulse');
+        card.addEventListener('animationend', () => card.classList.remove('card--pulse'), { once: true });
+      }
+    });
+  }
+
+  prevCardValues = cards.map(c => c.value);
 }
 
 // ── renderLeadsTable ──────────────────────────────────────────────────────────
@@ -235,18 +249,41 @@ async function loadCharts(dias = 30) {
 
 async function checkHealth() {
   const h = await DashboardAPI.getHealth();
-  const badge = $('db-status');
+  const badge  = $('db-status');
+  const banner = $('alert-banner');
+  const sessionsEl = $('sessions-value');
+
   if (h.database === 'connected') {
-    badge.textContent = 'DB conectado';
+    badge.textContent = 'Conectado';
     badge.className = 'badge badge--ok';
+    if (banner) banner.hidden = true;
   } else if (h.database === 'not_configured') {
-    badge.textContent = 'Sem banco';
-    badge.className = 'badge badge--error';
+    badge.textContent = 'Não configurado';
+    badge.className = 'badge badge--loading';
+    if (banner) banner.hidden = true;
   } else {
-    badge.textContent = 'DB erro';
+    badge.textContent = 'Desconectado';
     badge.className = 'badge badge--error';
+    if (banner) banner.hidden = false;
   }
+
+  if (sessionsEl && h.sessions !== undefined) {
+    sessionsEl.textContent = h.sessions;
+  }
+
   return h.database;
+}
+
+// ── refreshBackground ─────────────────────────────────────────────────────────
+// Atualiza stats e gráficos sem recarregar a tabela (preserva filtros/paginação)
+async function refreshBackground() {
+  const dias = parseInt($('select-dias').value) || 30;
+  const [stats] = await Promise.all([
+    DashboardAPI.getStats(),
+    loadCharts(dias),
+  ]);
+  renderCards(stats);
+  $('last-update').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────
@@ -275,9 +312,12 @@ async function init() {
 document.addEventListener('DOMContentLoaded', () => {
   init();
 
-  $('btn-refresh').addEventListener('click', () => {
+  $('btn-refresh').addEventListener('click', async () => {
+    const btn = $('btn-refresh');
+    btn.classList.add('is-spinning');
     currentOffset = 0;
-    init();
+    await init();
+    btn.classList.remove('is-spinning');
   });
 
   $('select-dias').addEventListener('change', e => {
@@ -305,10 +345,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $('modal-backdrop').addEventListener('click', closeModal);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // Auto-refresh a cada 60 segundos
-  setInterval(() => {
-    DashboardAPI.getStats().then(renderCards);
-    checkHealth();
-    $('last-update').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
-  }, 60_000);
+  // Verifica status do banco a cada 30 segundos
+  setInterval(checkHealth, 30_000);
+
+  // Atualiza stats e gráficos a cada 60 segundos (sem recarregar tabela)
+  setInterval(refreshBackground, 60_000);
 });
