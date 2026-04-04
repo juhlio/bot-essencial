@@ -133,15 +133,15 @@ function closeModal() {
 
 // ── Loaders ────────────────────────────────────────────────────────────────────
 async function loadStats() {
-  const stats = await API.getStats();
+  const stats = await DashboardAPI.getStats();
   renderStats(stats);
 }
 
 async function loadCharts(dias = 30) {
   const [leadsDia, segmentos, funil] = await Promise.all([
-    API.getLeadsPorDia(dias),
-    API.getSegmentos(),
-    API.getFunil(),
+    DashboardAPI.getLeadsPorDia(dias),
+    DashboardAPI.getSegmentos(),
+    DashboardAPI.getFunil(),
   ]);
   Charts.renderLeadsPorDia(leadsDia);
   Charts.renderSegmentos(segmentos);
@@ -155,14 +155,14 @@ async function loadLeads() {
     offset: currentPage * PAGE_SIZE,
     ...activeFilters,
   };
-  const { leads, total } = await API.getLeads(params);
+  const { leads, total } = await DashboardAPI.getLeads(params);
   renderTable(leads);
   renderPagination(total, currentPage * PAGE_SIZE, PAGE_SIZE);
 }
 
 async function checkHealth() {
   try {
-    const h = await API.getHealth();
+    const h = await DashboardAPI.getHealth();
     const badge = $('db-status');
     if (h.database === 'connected') {
       badge.textContent = 'DB conectado';
