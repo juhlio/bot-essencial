@@ -291,6 +291,20 @@ body {
 }
 .btn-filter:hover { background: var(--primary-light); }
 
+.btn-export {
+  background: var(--success);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+  text-decoration: none;
+}
+.btn-export:hover { background: #219a52; }
+
 .table-wrapper {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -510,5 +524,5 @@ body {
   .header-inner { padding: 0 1rem; }
   .last-update { display: none; }
   .table-filters { flex-direction: column; align-items: stretch; }
-  .input-sm, .select-sm, .btn-filter { width: 100%; }
+  .input-sm, .select-sm, .btn-filter, .btn-export { width: 100%; }
 }
