@@ -7,6 +7,7 @@ const logger = require('./utils/logger');
 const { sessionStore } = require('./services/sessionStore');
 const { handleMessage } = require('./handlers/botHandler');
 const { runMigrations } = require('./database/migrate');
+const { listLeads, countLeads } = require('./database/leadRepository');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,37 @@ app.get('/health', async (req, res) => {
     database: dbStatus,
     uptime: process.uptime(),
   });
+});
+
+// ─── GET /api/leads ──────────────────────────────────────────────────────────
+app.get('/api/leads', async (req, res) => {
+  const db = require('./services/database');
+  if (!db.getPool()) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+    const filters = {
+      limit,
+      offset,
+      ...(req.query.segment && { segment: req.query.segment }),
+      ...(req.query.is_icp !== undefined && { is_icp: req.query.is_icp === 'true' }),
+      ...(req.query.date_from && { date_from: req.query.date_from }),
+      ...(req.query.date_to && { date_to: req.query.date_to }),
+    };
+
+    const [leads, total] = await Promise.all([
+      listLeads(filters),
+      countLeads(filters),
+    ]);
+
+    res.json({ total, limit, offset, leads });
+  } catch (err) {
+    logger.error(`GET /api/leads error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // ─── POST /webhook ───────────────────────────────────────────────────────────
