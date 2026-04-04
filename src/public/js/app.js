@@ -143,9 +143,9 @@ async function loadCharts(dias = 30) {
     DashboardAPI.getSegmentos(),
     DashboardAPI.getFunil(),
   ]);
-  Charts.renderLeadsPorDia(leadsDia);
-  Charts.renderSegmentos(segmentos);
-  Charts.renderFunil(funil);
+  DashboardCharts.renderLeadsPorDia('chart-leads-dia', leadsDia);
+  DashboardCharts.renderSegmentos('chart-segmentos', segmentos);
+  DashboardCharts.renderFunil('chart-funil', funil);
 }
 
 async function loadLeads() {
