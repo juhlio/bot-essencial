@@ -1,20 +1,21 @@
 const CHART_DEFAULTS = {
-  color: { grid: 'rgba(255,255,255,.06)', text: '#9ca3af' },
+  color: { grid: '#e8ecf0', text: '#7F8C8D' },
   colors: {
-    primary:    'rgba(245,166,35,.85)',
-    primaryFill:'rgba(245,166,35,.15)',
-    success:    'rgba(34,197,94,.85)',
-    successFill:'rgba(34,197,94,.15)',
-    danger:     'rgba(239,68,68,.85)',
-    venda:      'rgba(99,102,241,.85)',
-    locacao:    'rgba(245,166,35,.85)',
-    manutencao: 'rgba(20,184,166,.85)',
+    primary:    'rgba(27,58,92,.85)',
+    primaryFill:'rgba(27,58,92,.1)',
+    success:    'rgba(39,174,96,.85)',
+    successFill:'rgba(39,174,96,.1)',
+    danger:     'rgba(231,76,60,.85)',
+    venda:      'rgba(59,91,219,.85)',
+    locacao:    'rgba(232,103,28,.85)',
+    manutencao: 'rgba(15,138,106,.85)',
   },
 };
 
 Chart.defaults.color          = CHART_DEFAULTS.color.text;
 Chart.defaults.borderColor    = CHART_DEFAULTS.color.grid;
 Chart.defaults.font.family    = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.backgroundColor = '#FFFFFF';
 
 const Charts = {
   _instances: {},
@@ -86,7 +87,7 @@ const Charts = {
             CHART_DEFAULTS.colors.manutencao,
           ],
           borderWidth: 2,
-          borderColor: '#1a1d27',
+          borderColor: '#FFFFFF',
         }],
       },
       options: {

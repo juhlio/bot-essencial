@@ -195,14 +195,11 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCharts(parseInt(e.target.value));
   });
 
-  $('filter-segment').addEventListener('change', e => {
-    activeFilters.segment = e.target.value || undefined;
-    currentPage = 0;
-    loadLeads();
-  });
-
-  $('filter-icp').addEventListener('change', e => {
-    activeFilters.is_icp = e.target.value || undefined;
+  $('btn-filter').addEventListener('click', () => {
+    activeFilters.segment   = $('filter-segment').value || undefined;
+    activeFilters.is_icp    = $('filter-icp').value    || undefined;
+    activeFilters.date_from = $('filter-date-from').value || undefined;
+    activeFilters.date_to   = $('filter-date-to').value   || undefined;
     currentPage = 0;
     loadLeads();
   });
