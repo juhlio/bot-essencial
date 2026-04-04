@@ -8,6 +8,7 @@ const { sessionStore } = require('./services/sessionStore');
 const { handleMessage } = require('./handlers/botHandler');
 const { runMigrations } = require('./database/migrate');
 const { listLeads, countLeads } = require('./database/leadRepository');
+const { getStats, getLeadsPorDia, getFunil, getSegmentoDetalhado } = require('./database/dashboardRepository');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -65,6 +66,57 @@ app.get('/api/leads', async (req, res) => {
     res.json({ total, limit, offset, leads });
   } catch (err) {
     logger.error(`GET /api/leads error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/dashboard/* ────────────────────────────────────────────────────
+function requireDb(req, res) {
+  const db = require('./services/database');
+  if (!db.getPool()) {
+    res.status(503).json({ error: 'Database not configured' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/dashboard/stats', async (req, res) => {
+  if (!requireDb(req, res)) return;
+  try {
+    res.json(await getStats());
+  } catch (err) {
+    logger.error(`GET /api/dashboard/stats error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/dashboard/leads-por-dia', async (req, res) => {
+  if (!requireDb(req, res)) return;
+  try {
+    const dias = Math.min(parseInt(req.query.dias) || 30, 365);
+    res.json(await getLeadsPorDia(dias));
+  } catch (err) {
+    logger.error(`GET /api/dashboard/leads-por-dia error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/dashboard/funil', async (req, res) => {
+  if (!requireDb(req, res)) return;
+  try {
+    res.json(await getFunil());
+  } catch (err) {
+    logger.error(`GET /api/dashboard/funil error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/dashboard/segmentos', async (req, res) => {
+  if (!requireDb(req, res)) return;
+  try {
+    res.json(await getSegmentoDetalhado());
+  } catch (err) {
+    logger.error(`GET /api/dashboard/segmentos error: ${err.message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
