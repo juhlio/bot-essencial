@@ -1,23 +1,19 @@
-const CHART_DEFAULTS = {
-  color: { grid: '#e8ecf0', text: '#7F8C8D' },
-  colors: {
-    primary:    'rgba(27,58,92,.85)',
-    primaryFill:'rgba(27,58,92,.1)',
-    success:    'rgba(39,174,96,.85)',
-    successFill:'rgba(39,174,96,.1)',
-    danger:     'rgba(231,76,60,.85)',
-    venda:      'rgba(59,91,219,.85)',
-    locacao:    'rgba(232,103,28,.85)',
-    manutencao: 'rgba(15,138,106,.85)',
-  },
+Chart.defaults.font.family    = 'Arial, sans-serif';
+Chart.defaults.animation      = { duration: 500 };
+Chart.defaults.plugins.tooltip.padding = 10;
+
+const COLORS = {
+  primary:    '#1B3A5C',
+  primaryAlpha:'rgba(27,58,92,.75)',
+  secondary:  '#E8671C',
+  secondaryAlpha:'rgba(232,103,28,.75)',
+  success:    '#27AE60',
+  successAlpha:'rgba(39,174,96,.75)',
+  grid:       '#e8ecf0',
+  text:       '#7F8C8D',
 };
 
-Chart.defaults.color          = CHART_DEFAULTS.color.text;
-Chart.defaults.borderColor    = CHART_DEFAULTS.color.grid;
-Chart.defaults.font.family    = "'Segoe UI', system-ui, sans-serif";
-Chart.defaults.backgroundColor = '#FFFFFF';
-
-const Charts = {
+const DashboardCharts = {
   _instances: {},
 
   _destroy(id) {
@@ -27,110 +23,206 @@ const Charts = {
     }
   },
 
-  renderLeadsPorDia(data) {
-    this._destroy('leads-dia');
-    const ctx = document.getElementById('chart-leads-dia').getContext('2d');
-    this._instances['leads-dia'] = new Chart(ctx, {
-      type: 'line',
+  _canvas(canvasId) {
+    const el = document.getElementById(canvasId);
+    if (!el) { console.warn(`[DashboardCharts] canvas #${canvasId} não encontrado`); return null; }
+    return el.getContext('2d');
+  },
+
+  // ── 1. Leads por dia (barras empilhadas) ───────────────────────────────────
+  renderLeadsPorDia(canvasId, data) {
+    const ctx = this._canvas(canvasId);
+    if (!ctx || !data?.length) return;
+    this._destroy(canvasId);
+
+    const fmtLabel = iso => {
+      const [, m, d] = iso.split('-');
+      return `${d}/${m}`;
+    };
+    const fmtFull = iso => {
+      const [y, m, d] = iso.split('-');
+      return `${d}/${m}/${y}`;
+    };
+
+    this._instances[canvasId] = new Chart(ctx, {
+      type: 'bar',
       data: {
-        labels: data.map(d => d.date.slice(5)),
+        labels: data.map(d => fmtLabel(d.date)),
         datasets: [
-          {
-            label: 'Total',
-            data: data.map(d => d.total),
-            borderColor: CHART_DEFAULTS.colors.primary,
-            backgroundColor: CHART_DEFAULTS.colors.primaryFill,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 3,
-          },
           {
             label: 'ICP',
             data: data.map(d => d.icp),
-            borderColor: CHART_DEFAULTS.colors.success,
-            backgroundColor: 'transparent',
-            tension: 0.3,
-            pointRadius: 2,
-            borderDash: [4, 3],
+            backgroundColor: COLORS.primaryAlpha,
+            borderColor: COLORS.primary,
+            borderWidth: 1,
+            stack: 'leads',
+          },
+          {
+            label: 'Fora do ICP',
+            data: data.map(d => d.fora_icp),
+            backgroundColor: COLORS.secondaryAlpha,
+            borderColor: COLORS.secondary,
+            borderWidth: 1,
+            stack: 'leads',
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } },
+          tooltip: {
+            callbacks: {
+              title: items => fmtFull(data[items[0].dataIndex].date),
+              footer: items => {
+                const total = data[items[0].dataIndex].total;
+                return `Total: ${total}`;
+              },
+            },
+          },
+        },
         scales: {
-          x: { grid: { color: CHART_DEFAULTS.color.grid }, ticks: { maxTicksLimit: 10 } },
-          y: { grid: { color: CHART_DEFAULTS.color.grid }, beginAtZero: true, ticks: { stepSize: 1 } },
+          x: {
+            stacked: true,
+            grid: { color: COLORS.grid },
+            ticks: { color: COLORS.text, maxTicksLimit: 15 },
+          },
+          y: {
+            stacked: true,
+            grid: { color: COLORS.grid },
+            ticks: { color: COLORS.text, stepSize: 1, precision: 0 },
+            beginAtZero: true,
+          },
         },
       },
     });
   },
 
-  renderSegmentos(segmentos) {
-    this._destroy('segmentos');
-    const labels = ['Venda', 'Locação', 'Manutenção'];
-    const venda     = Object.values(segmentos.venda     || {}).reduce((a, b) => a + b, 0);
-    const locacao   = Object.values(segmentos.locacao   || {}).reduce((a, b) => a + b, 0);
-    const manutencao = (segmentos.manutencao || {}).total || 0;
+  // ── 2. Segmentos (donut com label central) ─────────────────────────────────
+  renderSegmentos(canvasId, data) {
+    const ctx = this._canvas(canvasId);
+    if (!ctx || !data) return;
+    this._destroy(canvasId);
 
-    const ctx = document.getElementById('chart-segmentos').getContext('2d');
-    this._instances['segmentos'] = new Chart(ctx, {
+    const venda      = Object.values(data.venda      || {}).reduce((a, b) => a + b, 0);
+    const locacao    = Object.values(data.locacao    || {}).reduce((a, b) => a + b, 0);
+    const manutencao = (data.manutencao || {}).total || 0;
+    const total      = venda + locacao + manutencao;
+
+    // Plugin inline para label central
+    const centerLabel = {
+      id: `center-${canvasId}`,
+      beforeDraw(chart) {
+        const { width, height, ctx: c } = chart;
+        c.save();
+        c.font = `bold ${Math.round(height / 8)}px Arial, sans-serif`;
+        c.fillStyle = COLORS.primary;
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillText(total, width / 2, height / 2 - 8);
+        c.font = `${Math.round(height / 14)}px Arial, sans-serif`;
+        c.fillStyle = COLORS.text;
+        c.fillText('leads', width / 2, height / 2 + 14);
+        c.restore();
+      },
+    };
+
+    this._instances[canvasId] = new Chart(ctx, {
       type: 'doughnut',
+      data: {
+        labels: ['Venda', 'Locação', 'Manutenção'],
+        datasets: [{
+          data: [venda, locacao, manutencao],
+          backgroundColor: [COLORS.primaryAlpha, COLORS.secondaryAlpha, COLORS.successAlpha],
+          borderColor:      [COLORS.primary,      COLORS.secondary,      COLORS.success],
+          borderWidth: 2,
+          hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '62%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 12, padding: 14 },
+          },
+          tooltip: {
+            callbacks: {
+              label: item => {
+                const val = item.raw;
+                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                return ` ${item.label}: ${val} (${pct}%)`;
+              },
+            },
+          },
+        },
+      },
+      plugins: [centerLabel],
+    });
+  },
+
+  // ── 3. Funil (barras horizontais) ─────────────────────────────────────────
+  renderFunil(canvasId, data) {
+    const ctx = this._canvas(canvasId);
+    if (!ctx || !data) return;
+    this._destroy(canvasId);
+
+    const { sessoes_iniciadas = 0, sessoes_completadas = 0, leads_icp = 0, leads_fora_icp = 0, taxa_conclusao = 0, taxa_icp = 0 } = data;
+    const total_leads = leads_icp + leads_fora_icp;
+
+    const labels = [
+      'Sessões Iniciadas',
+      `Sessões Completadas (${taxa_conclusao}%)`,
+      `Leads ICP (${taxa_icp}%)`,
+      `Leads Fora do ICP (${total_leads > 0 ? Math.round((leads_fora_icp / total_leads) * 100) : 0}%)`,
+    ];
+    const values = [sessoes_iniciadas, sessoes_completadas, leads_icp, leads_fora_icp];
+    const bgColors = [
+      COLORS.primaryAlpha,
+      'rgba(27,80,140,.75)',
+      COLORS.successAlpha,
+      COLORS.secondaryAlpha,
+    ];
+    const borderColors = [COLORS.primary, '#1b508c', COLORS.success, COLORS.secondary];
+
+    this._instances[canvasId] = new Chart(ctx, {
+      type: 'bar',
       data: {
         labels,
         datasets: [{
-          data: [venda, locacao, manutencao],
-          backgroundColor: [
-            CHART_DEFAULTS.colors.venda,
-            CHART_DEFAULTS.colors.locacao,
-            CHART_DEFAULTS.colors.manutencao,
-          ],
-          borderWidth: 2,
-          borderColor: '#FFFFFF',
+          data: values,
+          backgroundColor: bgColors,
+          borderColor: borderColors,
+          borderWidth: 1,
+          borderRadius: 4,
+          barThickness: 28,
         }],
       },
       options: {
+        indexAxis: 'y',
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12 } },
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: item => ` ${item.raw} leads`,
+            },
+          },
         },
-        cutout: '65%',
-      },
-    });
-  },
-
-  renderFunil(funil) {
-    this._destroy('funil');
-    const ctx = document.getElementById('chart-funil').getContext('2d');
-    this._instances['funil'] = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: ['Sessões', 'Concluídas', 'ICP', 'Fora ICP'],
-        datasets: [{
-          data: [
-            funil.sessoes_iniciadas,
-            funil.sessoes_completadas,
-            funil.leads_icp,
-            funil.leads_fora_icp,
-          ],
-          backgroundColor: [
-            CHART_DEFAULTS.colors.primary,
-            CHART_DEFAULTS.colors.success,
-            CHART_DEFAULTS.colors.venda,
-            CHART_DEFAULTS.colors.danger,
-          ],
-          borderRadius: 6,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false } },
-          y: { grid: { color: CHART_DEFAULTS.color.grid }, beginAtZero: true, ticks: { stepSize: 1 } },
+          x: {
+            grid: { color: COLORS.grid },
+            ticks: { color: COLORS.text, precision: 0 },
+            beginAtZero: true,
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: COLORS.text },
+          },
         },
       },
     });
