@@ -8,7 +8,7 @@ const { sessionStore } = require('./services/sessionStore');
 const { handleMessage } = require('./handlers/botHandler');
 const path = require('path');
 const { runMigrations } = require('./database/migrate');
-const { listLeads, countLeads } = require('./database/leadRepository');
+const { listLeads, countLeads, findLeadById } = require('./database/leadRepository');
 const { getStats, getLeadsPorDia, getFunil, getSegmentoDetalhado } = require('./database/dashboardRepository');
 
 const app = express();
@@ -68,6 +68,31 @@ app.get('/api/leads', async (req, res) => {
     res.json({ total, limit, offset, leads });
   } catch (err) {
     logger.error(`GET /api/leads error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/leads/:id ──────────────────────────────────────────────────────
+app.get('/api/leads/:id', async (req, res) => {
+  const db = require('./services/database');
+  if (!db.getPool()) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid ID' });
+    }
+
+    const lead = await findLeadById(id);
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    res.json(lead);
+  } catch (err) {
+    logger.error(`GET /api/leads/:id error: ${err.message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
