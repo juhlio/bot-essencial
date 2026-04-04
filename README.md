@@ -11,7 +11,9 @@ Bot de atendimento via WhatsApp para qualificação de leads, construído com **
 - [Instalação Local](#instalação-local)
 - [Variáveis de Ambiente](#variáveis-de-ambiente)
 - [Rodando com Docker](#rodando-com-docker)
+- [Rodando com PostgreSQL](#rodando-com-postgresql)
 - [Endpoints](#endpoints)
+- [API de Consulta](#api-de-consulta)
 - [Fluxo de Atendimento](#fluxo-de-atendimento)
 - [Testes](#testes)
 - [Referência Rápida](#referência-rápida)
@@ -39,7 +41,12 @@ essencial-bot/
 │   ├── index.js                  # Servidor Express + endpoints
 │   ├── handlers/
 │   │   └── botHandler.js         # Máquina de estados do bot
+│   ├── database/
+│   │   ├── schema.sql            # Schema das tabelas
+│   │   ├── migrate.js            # Script de migração
+│   │   └── leadRepository.js     # CRUD de leads
 │   ├── services/
+│   │   ├── database.js           # Pool de conexão PostgreSQL
 │   │   ├── sessionStore.js       # Roteador memória/Redis
 │   │   ├── redisSessionStore.js  # Backend Redis com fallback
 │   │   └── cnpjService.js        # Consulta BrasilAPI
@@ -50,11 +57,13 @@ essencial-bot/
 │       └── messages.js           # Templates de mensagens
 ├── tests/
 │   ├── validators.test.js
-│   └── botHandler.test.js
+│   ├── botHandler.test.js
+│   └── leadRepository.test.js
 ├── Dockerfile
 ├── docker-compose.yml
 ├── docker-compose.dev.yml
 ├── docker-compose.redis.yml
+├── docker-compose.postgres.yml
 ├── .env.example
 └── package.json
 ```
@@ -87,6 +96,7 @@ npm run dev
 | `BOT_REMINDER_TIMEOUT_MIN` | Minutos até lembrete de inatividade | `10` |
 | `BOT_CLOSE_TIMEOUT_MIN` | Minutos até encerrar sessão inativa | `40` |
 | `CNPJ_API_URL` | URL base da BrasilAPI | `https://brasilapi.com.br/api/cnpj/v1` |
+| `DATABASE_URL` | URL de conexão PostgreSQL (opcional) | vazio = sem persistência |
 | `REDIS_URL` | URL do Redis (opcional) | vazio = memória |
 | `LOG_LEVEL` | Nível de log do Winston | `info` |
 
@@ -165,6 +175,34 @@ docker compose exec redis redis-cli keys "session:*"
 
 ---
 
+---
+
+## Rodando com PostgreSQL
+
+O bot persiste leads e sessões no PostgreSQL quando `DATABASE_URL` está definida. Sem banco, funciona normalmente — os dados ficam nos logs como fallback.
+
+As migrações rodam automaticamente na inicialização do servidor.
+
+### Somente PostgreSQL
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+```
+
+### PostgreSQL + Redis (recomendado para produção)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.redis.yml -f docker-compose.postgres.yml up -d --build
+```
+
+### Rodando migrações manualmente
+
+```bash
+npm run migrate
+```
+
+---
+
 ### Deploy em produção com Docker
 
 Em qualquer servidor com Docker instalado, o deploy é:
@@ -227,9 +265,56 @@ sudo certbot --nginx -d seu-dominio.com
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/health` | Status do serviço, sessões ativas e uptime |
+| `GET` | `/health` | Status do serviço, sessões ativas, banco e uptime |
+| `GET` | `/api/leads` | Lista leads com filtros e paginação |
 | `POST` | `/webhook` | Recebe mensagens do Twilio e retorna TwiML |
 | `POST` | `/status` | Callback de status de entrega do Twilio |
+
+---
+
+## API de Consulta
+
+O endpoint `GET /api/leads` permite consultar os leads salvos no banco.
+
+### Parâmetros de query
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `segment` | string | Filtrar por segmento: `venda`, `locacao`, `manutencao` |
+| `is_icp` | boolean | Filtrar por ICP: `true` ou `false` |
+| `date_from` | ISO 8601 | Data inicial (ex: `2026-01-01`) |
+| `date_to` | ISO 8601 | Data final (ex: `2026-12-31`) |
+| `limit` | number | Máximo de resultados (default `50`, máx `200`) |
+| `offset` | number | Offset para paginação (default `0`) |
+
+### Exemplos
+
+```bash
+# Listar todos os leads
+curl http://localhost:3000/api/leads
+
+# Filtrar por segmento e ICP
+curl http://localhost:3000/api/leads?segment=venda&is_icp=true
+
+# Paginação
+curl http://localhost:3000/api/leads?limit=10&offset=20
+
+# Filtrar por período
+curl "http://localhost:3000/api/leads?date_from=2026-01-01&date_to=2026-12-31"
+```
+
+### Resposta
+
+```json
+{
+  "total": 42,
+  "limit": 50,
+  "offset": 0,
+  "leads": [...]
+}
+```
+
+Retorna `503` se o banco não estiver configurado.
 
 ---
 
@@ -269,11 +354,12 @@ Cada step possui controle de erros: após 3 entradas inválidas consecutivas, o 
 npm test
 ```
 
-50 testes com o runner nativo do Node.js (`node:test`). Sem dependências externas de teste.
+62 testes com o runner nativo do Node.js (`node:test`). Sem dependências externas de teste. Não requer banco de dados ou Redis rodando.
 
 Cobertura:
 - **validators.test.js** — CPF, CNPJ, e-mail, telefone, formatação, opções (37 testes)
 - **botHandler.test.js** — 6 fluxos completos: venda, fora do ICP, locação, manutenção, maxErrors, reset (13 testes)
+- **leadRepository.test.js** — degradação graciosa sem banco e integração fire-and-forget (12 testes)
 
 ---
 
@@ -292,3 +378,7 @@ Cobertura:
 | `docker compose down -v` | Para e remove volumes |
 | `docker compose exec redis redis-cli keys "session:*"` | Lista sessões no Redis |
 | `curl http://localhost:3000/health` | Verifica saúde do serviço |
+| `curl http://localhost:3000/api/leads` | Lista leads salvos no banco |
+| `npm run migrate` | Cria/atualiza tabelas no banco |
+| `docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build` | Sobe com PostgreSQL |
+| `docker compose -f docker-compose.yml -f docker-compose.redis.yml -f docker-compose.postgres.yml up -d --build` | Sobe com PostgreSQL + Redis |
