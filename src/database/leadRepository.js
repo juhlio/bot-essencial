@@ -235,6 +235,47 @@ async function countLeads(filters = {}) {
   }
 }
 
+// ─── exportLeads ─────────────────────────────────────────────────────────────
+async function exportLeads(filters = {}) {
+  const pool = getPool();
+  if (!pool) {
+    logger.warn('exportLeads: banco indisponível');
+    return [];
+  }
+
+  const { segment, is_icp, date_from, date_to } = filters;
+  const conditions = [];
+  const params = [];
+
+  if (segment) {
+    params.push(segment);
+    conditions.push(`segment = $${params.length}`);
+  }
+  if (is_icp !== undefined) {
+    params.push(is_icp);
+    conditions.push(`is_icp = $${params.length}`);
+  }
+  if (date_from) {
+    params.push(date_from);
+    conditions.push(`created_at >= $${params.length}`);
+  }
+  if (date_to) {
+    params.push(date_to);
+    conditions.push(`created_at <= $${params.length}`);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const text = `SELECT * FROM leads ${where} ORDER BY created_at DESC`;
+
+  try {
+    const result = await pool.query(text, params);
+    return result.rows;
+  } catch (err) {
+    logger.error(`exportLeads error: ${err.message}`);
+    return [];
+  }
+}
+
 // ─── findLeadById ─────────────────────────────────────────────────────────────
 async function findLeadById(id) {
   const pool = getPool();
@@ -260,4 +301,5 @@ module.exports = {
   findLeadById,
   listLeads,
   countLeads,
+  exportLeads,
 };

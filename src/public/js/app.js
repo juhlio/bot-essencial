@@ -286,6 +286,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('btn-filter').addEventListener('click', applyFilters);
 
+  $('btn-export-csv').addEventListener('click', () => {
+    const params = new URLSearchParams();
+    if (activeFilters.segment)   params.append('segment',   activeFilters.segment);
+    if (activeFilters.is_icp !== undefined) params.append('is_icp', activeFilters.is_icp);
+    if (activeFilters.date_from) params.append('date_from', activeFilters.date_from);
+    if (activeFilters.date_to)   params.append('date_to',   activeFilters.date_to);
+    const qs = params.toString();
+    window.open(`/api/leads/export/csv${qs ? '?' + qs : ''}`, '_blank');
+  });
+
   // Permite filtrar pressionando Enter nos inputs de data
   [$('filter-date-from'), $('filter-date-to')].forEach(el => {
     el?.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });

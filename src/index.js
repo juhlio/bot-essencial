@@ -8,7 +8,7 @@ const { sessionStore } = require('./services/sessionStore');
 const { handleMessage } = require('./handlers/botHandler');
 const path = require('path');
 const { runMigrations } = require('./database/migrate');
-const { listLeads, countLeads, findLeadById } = require('./database/leadRepository');
+const { listLeads, countLeads, findLeadById, exportLeads } = require('./database/leadRepository');
 const { getStats, getLeadsPorDia, getFunil, getSegmentoDetalhado } = require('./database/dashboardRepository');
 
 const app = express();
@@ -68,6 +68,68 @@ app.get('/api/leads', async (req, res) => {
     res.json({ total, limit, offset, leads });
   } catch (err) {
     logger.error(`GET /api/leads error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/leads/export/csv ───────────────────────────────────────────────
+app.get('/api/leads/export/csv', async (req, res) => {
+  const db = require('./services/database');
+  if (!db.getPool()) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const filters = {
+      ...(req.query.segment && { segment: req.query.segment }),
+      ...(req.query.is_icp !== undefined && req.query.is_icp !== '' && { is_icp: req.query.is_icp === 'true' }),
+      ...(req.query.date_from && { date_from: req.query.date_from }),
+      ...(req.query.date_to && { date_to: req.query.date_to }),
+    };
+
+    const leads = await exportLeads(filters);
+
+    const KVA_LABELS = { 1: 'Até 50 kVA', 2: '50-100 kVA', 3: '100-200 kVA', 4: '200-300 kVA', 5: 'Acima de 300 kVA', 6: 'Não sei / Dimensionamento' };
+    const CONTRACT_LABELS = { 1: 'Stand-by', 2: 'Prime/Contínua', 3: 'Longo Prazo', 4: 'Outro/Sob Demanda' };
+    const SEGMENT_LABELS = { venda: 'Venda', locacao: 'Locação', manutencao: 'Manutenção' };
+
+    const escape = v => {
+      if (v === null || v === undefined) return '';
+      const s = Array.isArray(v) ? v.join(', ') : String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+
+    const headers = ['ID', 'Nome', 'Tipo Documento', 'Documento', 'Empresa', 'E-mail', 'Telefone', 'Segmento', 'Faixa kVA', 'Tipo Contrato', 'Marca', 'Modelo', 'ICP', 'Newsletter', 'Tags', 'Data'];
+
+    const rows = leads.map(l => [
+      l.id,
+      escape(l.name),
+      escape(l.document_type),
+      escape(l.document),
+      escape(l.company_name),
+      escape(l.email),
+      escape(l.phone),
+      escape(SEGMENT_LABELS[l.segment] || l.segment),
+      escape(KVA_LABELS[l.kva_range] || l.kva_range),
+      escape(CONTRACT_LABELS[l.contract_type] || l.contract_type),
+      escape(l.equipment_brand),
+      escape(l.equipment_model),
+      l.is_icp ? 'Sim' : 'Não',
+      l.opt_in_newsletter === true ? 'Sim' : l.opt_in_newsletter === false ? 'Não' : '',
+      escape(l.tags),
+      l.created_at ? new Date(l.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '',
+    ].join(','));
+
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename=leads_${date}.csv`);
+    res.send(csv);
+  } catch (err) {
+    logger.error(`GET /api/leads/export/csv error: ${err.message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
