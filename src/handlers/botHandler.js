@@ -2,6 +2,7 @@ const { sessionStore } = require('../services/sessionStore');
 const { lookupCNPJ } = require('../services/cnpjService');
 const { validateDocument, isValidEmail, isValidPhone, formatPhone, isValidOption } = require('../validators/validators');
 const { messages } = require('../utils/messages');
+const { saveLead, saveSession } = require('../database/leadRepository');
 const logger = require('../utils/logger');
 
 const RESET_KEYWORDS = ['reiniciar', 'recomeçar', 'voltar', 'menu'];
@@ -9,6 +10,21 @@ const RESET_KEYWORDS = ['reiniciar', 'recomeçar', 'voltar', 'menu'];
 function logPayload(phoneNumber) {
   const payload = sessionStore.toPayload(phoneNumber);
   logger.info(`Lead finalizado [${phoneNumber}]: ${JSON.stringify(payload)}`);
+}
+
+function persistLead(session) {
+  logPayload(session.phoneNumber);
+  saveLead(session)
+    .then((lead) => {
+      if (lead) {
+        logger.info(`Lead persistido no banco [id=${lead.id}]`);
+        return saveSession(session.phoneNumber, session, lead.id);
+      }
+      return saveSession(session.phoneNumber, session, null);
+    })
+    .catch((err) => {
+      logger.error(`persistLead error: ${err.message}`);
+    });
 }
 
 function checkMaxErrors(session, errorMessage) {
@@ -113,7 +129,7 @@ const stepHandlers = {
     }
 
     session.completed = true;
-    logPayload(session.phoneNumber);
+    persistLead(session);
     return [messages.closing(session)];
   },
 
@@ -124,7 +140,7 @@ const stepHandlers = {
     const option = parseInt(body, 10);
     session.optInNewsletter = option === 1;
     session.completed = true;
-    logPayload(session.phoneNumber);
+    persistLead(session);
     return [option === 1 ? messages.outOfIcpOptIn : messages.outOfIcpOptOut];
   },
 
@@ -134,7 +150,7 @@ const stepHandlers = {
     }
     session.qualificationData.contractType = parseInt(body, 10);
     session.completed = true;
-    logPayload(session.phoneNumber);
+    persistLead(session);
     return [messages.closing(session)];
   },
 
@@ -151,7 +167,7 @@ const stepHandlers = {
   awaiting_model(session, body) {
     session.qualificationData.equipmentModel = body.trim();
     session.completed = true;
-    logPayload(session.phoneNumber);
+    persistLead(session);
     return [messages.closing(session)];
   },
 };
