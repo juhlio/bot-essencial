@@ -18,12 +18,19 @@
         </div>
       </div>
       <div class="header-meta">
+        <span id="sessions-count" class="header-sessions" title="Sessões ativas no momento">
+          <span id="sessions-value">—</span> sessões
+        </span>
         <span id="db-status" class="badge badge--loading">Conectando...</span>
         <span id="last-update" class="last-update"></span>
-        <button id="btn-refresh" class="btn-refresh" title="Atualizar dados">↻</button>
+        <button id="btn-refresh" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
       </div>
     </div>
   </header>
+
+  <div id="alert-banner" class="alert-banner" hidden>
+    ⚠️ Banco de dados desconectado — os dados exibidos podem estar desatualizados.
+  </div>
 
   <main class="main">
 
