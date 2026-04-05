@@ -113,6 +113,11 @@ async function resolveMessage(key, variables = {}) {
   return result;
 }
 
+// Exposto para uso em testes — permite popular o cache sem banco
+function populateCache(templates) {
+  _setCache(templates);
+}
+
 module.exports = {
   getAllMessages,
   getMessageByKey,
@@ -121,4 +126,5 @@ module.exports = {
   resetAllMessages,
   invalidateCache,
   resolveMessage,
+  populateCache,
 };

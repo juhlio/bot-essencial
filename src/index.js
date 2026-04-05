@@ -280,10 +280,10 @@ app.get('/api/messages/:key', async (req, res) => {
 
 // PUT /api/messages/:key
 app.put('/api/messages/:key', async (req, res) => {
-  if (!requireDb(req, res)) return;
   try {
     const { content, updated_by } = req.body;
 
+    // Validações de input primeiro (antes de checar banco)
     if (!content || !content.trim()) {
       return res.status(400).json({ error: 'content is required' });
     }
@@ -302,6 +302,7 @@ app.put('/api/messages/:key', async (req, res) => {
       }
     }
 
+    if (!requireDb(req, res)) return;
     const updated = await updateMessage(req.params.key, content.trim(), updated_by || 'api');
     res.json(updated);
   } catch (err) {
@@ -350,6 +351,7 @@ app.post('/api/messages/preview', (req, res) => {
     const whatsapp_preview = preview
       .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
       .replace(/_(.*?)_/g, '<em>$1</em>')
+      .replace(/~(.*?)~/g, '<s>$1</s>')
       .replace(/\n/g, '<br>');
 
     res.json({ preview, whatsapp_preview });
@@ -419,4 +421,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
