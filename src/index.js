@@ -10,6 +10,8 @@ const path = require('path');
 const { runMigrations } = require('./database/migrate');
 const { listLeads, countLeads, findLeadById, exportLeads } = require('./database/leadRepository');
 const { getStats, getLeadsPorDia, getFunil, getSegmentoDetalhado } = require('./database/dashboardRepository');
+const { getAllMessages, getMessageByKey, updateMessage, resetMessage, resetAllMessages } = require('./database/messageRepository');
+const { SEED_MESSAGES } = require('./database/seedMessages');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -206,6 +208,153 @@ app.get('/api/dashboard/segmentos', async (req, res) => {
     res.json(await getSegmentoDetalhado());
   } catch (err) {
     logger.error(`GET /api/dashboard/segmentos error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── /api/messages/* ─────────────────────────────────────────────────────────
+
+const CATEGORY_LABELS = {
+  saudacao:               'Saudação',
+  identificacao:          'Identificação',
+  segmentacao:            'Segmentação',
+  qualificacao_venda:     'Qualificação — Venda',
+  qualificacao_locacao:   'Qualificação — Locação',
+  qualificacao_manutencao:'Qualificação — Manutenção',
+  fora_icp:               'Fora do Perfil (ICP)',
+  encerramento:           'Encerramento',
+  erros:                  'Mensagens de Erro',
+  sistema:                'Sistema',
+};
+
+function groupByCategory(templates) {
+  const map = new Map();
+  for (const t of templates) {
+    if (!map.has(t.category)) map.set(t.category, []);
+    map.get(t.category).push(t);
+  }
+  return Array.from(map.entries()).map(([name, messages]) => ({
+    name,
+    label: CATEGORY_LABELS[name] || name,
+    messages,
+  }));
+}
+
+// GET /api/messages — sem banco retorna hardcoded com flag source:'fallback'
+app.get('/api/messages', async (req, res) => {
+  try {
+    const db = require('./services/database');
+    if (!db.getPool()) {
+      const fallback = SEED_MESSAGES.map(m => ({ ...m, source: 'fallback' }));
+      return res.json({ categories: groupByCategory(fallback) });
+    }
+    const templates = await getAllMessages();
+    const source = templates.length ? 'database' : 'fallback';
+    const list = templates.length
+      ? templates.map(t => ({ ...t, source: 'database' }))
+      : SEED_MESSAGES.map(m => ({ ...m, source: 'fallback' }));
+    res.json({ categories: groupByCategory(list), source });
+  } catch (err) {
+    logger.error(`GET /api/messages error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/messages/:key
+app.get('/api/messages/:key', async (req, res) => {
+  try {
+    const db = require('./services/database');
+    if (!db.getPool()) {
+      const seed = SEED_MESSAGES.find(m => m.key === req.params.key);
+      if (!seed) return res.status(404).json({ error: 'Template not found' });
+      return res.json({ ...seed, source: 'fallback' });
+    }
+    const template = await getMessageByKey(req.params.key);
+    if (!template) return res.status(404).json({ error: 'Template not found' });
+    res.json(template);
+  } catch (err) {
+    logger.error(`GET /api/messages/:key error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/messages/:key
+app.put('/api/messages/:key', async (req, res) => {
+  if (!requireDb(req, res)) return;
+  try {
+    const { content, updated_by } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'content is required' });
+    }
+    if (content.length > 2000) {
+      return res.status(400).json({ error: 'content exceeds 2000 characters' });
+    }
+
+    // Garante que variáveis obrigatórias do template original são mantidas
+    const seed = SEED_MESSAGES.find(m => m.key === req.params.key);
+    if (seed && seed.variables && seed.variables.length > 0) {
+      const missing = seed.variables.filter(v => !content.includes(`{{${v}}}`));
+      if (missing.length > 0) {
+        return res.status(400).json({
+          error: `Missing required variables: ${missing.map(v => `{{${v}}}`).join(', ')}`,
+        });
+      }
+    }
+
+    const updated = await updateMessage(req.params.key, content.trim(), updated_by || 'api');
+    res.json(updated);
+  } catch (err) {
+    if (err.message.startsWith('Template não encontrado')) {
+      return res.status(404).json({ error: err.message });
+    }
+    logger.error(`PUT /api/messages/:key error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/messages/reset
+app.post('/api/messages/reset', async (req, res) => {
+  if (!requireDb(req, res)) return;
+  try {
+    const { key } = req.body || {};
+    if (key) {
+      const result = await resetMessage(key);
+      return res.json(result);
+    }
+    const results = await resetAllMessages();
+    res.json({ reset: results.length });
+  } catch (err) {
+    if (err.message.startsWith('Seed não encontrado') || err.message.startsWith('Template não encontrado')) {
+      return res.status(404).json({ error: err.message });
+    }
+    logger.error(`POST /api/messages/reset error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/messages/preview
+app.post('/api/messages/preview', (req, res) => {
+  try {
+    const { content, variables = {} } = req.body || {};
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'content is required' });
+    }
+
+    let preview = content;
+    for (const [k, v] of Object.entries(variables)) {
+      preview = preview.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v ?? '');
+    }
+
+    // Converte formatação WhatsApp (*bold*, _italic_) para HTML
+    const whatsapp_preview = preview
+      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+      .replace(/_(.*?)_/g, '<em>$1</em>')
+      .replace(/\n/g, '<br>');
+
+    res.json({ preview, whatsapp_preview });
+  } catch (err) {
+    logger.error(`POST /api/messages/preview error: ${err.message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
