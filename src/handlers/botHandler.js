@@ -1,7 +1,7 @@
 const { sessionStore } = require('../services/sessionStore');
 const { lookupCNPJ } = require('../services/cnpjService');
 const { validateDocument, isValidEmail, isValidPhone, formatPhone, isValidOption } = require('../validators/validators');
-const { messages } = require('../utils/messages');
+const { getMessage, buildInterestLine } = require('../utils/messages');
 const { saveLead, saveSession } = require('../database/leadRepository');
 const logger = require('../utils/logger');
 
@@ -27,13 +27,13 @@ function persistLead(session) {
     });
 }
 
-function checkMaxErrors(session, errorMessage) {
+async function checkMaxErrors(session, errorMessage) {
   session.stepErrorCount += 1;
   session.errorCount += 1;
 
   if (session.stepErrorCount >= 3) {
     session.completed = true;
-    return [errorMessage, messages.maxErrors];
+    return [errorMessage, await getMessage('maxErrors')];
   }
 
   return [errorMessage];
@@ -44,26 +44,44 @@ function goToStep(session, step) {
   session.stepErrorCount = 0;
 }
 
+// Monta a mensagem de encerramento a partir dos templates closing_header e closing_footer
+// O resumo dinâmico intermediário (nome, empresa, email, telefone, interesse) fica em código.
+async function buildClosing(session) {
+  const team = session.segment === 'manutencao' ? 'técnica' : 'comercial';
+  const header = await getMessage('closing_header');
+  const footer = await getMessage('closing_footer', { team });
+  const companyLine = session.companyName ? `\n✅ *Empresa:* ${session.companyName}` : '';
+  const resumo =
+    `✅ *Nome:* ${session.name}` +
+    companyLine +
+    `\n✅ *E-mail:* ${session.email}` +
+    `\n✅ *Telefone:* ${session.phone}` +
+    `\n${buildInterestLine(session)}`;
+  return header + '\n' + resumo + '\n\n' + footer;
+}
+
+// ── Step handlers ─────────────────────────────────────────────────────────────
+
 const stepHandlers = {
-  greeting(session) {
+  async greeting(session) {
     goToStep(session, 'awaiting_name');
-    return [messages.greeting];
+    return [await getMessage('greeting')];
   },
 
-  awaiting_name(session, body) {
+  async awaiting_name(session, body) {
     const name = body.trim();
     if (name.length < 3) {
-      return checkMaxErrors(session, messages.invalidName);
+      return checkMaxErrors(session, await getMessage('invalidName'));
     }
     session.name = name;
     goToStep(session, 'awaiting_document');
-    return [messages.askDocument(name)];
+    return [await getMessage('askDocument', { name })];
   },
 
   async awaiting_document(session, body) {
     const { valid, type, cleaned } = validateDocument(body);
     if (!valid) {
-      return checkMaxErrors(session, messages.invalidDocument);
+      return checkMaxErrors(session, await getMessage('invalidDocument'));
     }
 
     session.document = cleaned;
@@ -74,50 +92,50 @@ const stepHandlers = {
       if (data && data.razaoSocial) {
         session.companyName = data.razaoSocial;
         goToStep(session, 'awaiting_email');
-        return [messages.documentFoundCNPJ(data.razaoSocial)];
+        return [await getMessage('documentFoundCNPJ', { company: data.razaoSocial })];
       }
     }
 
     goToStep(session, 'awaiting_email');
-    return [messages.documentOk];
+    return [await getMessage('documentOk')];
   },
 
-  awaiting_email(session, body) {
+  async awaiting_email(session, body) {
     const email = body.trim().toLowerCase();
     if (!isValidEmail(email)) {
-      return checkMaxErrors(session, messages.invalidEmail);
+      return checkMaxErrors(session, await getMessage('invalidEmail'));
     }
     session.email = email;
     goToStep(session, 'awaiting_phone');
-    return [messages.askPhone];
+    return [await getMessage('askPhone')];
   },
 
-  awaiting_phone(session, body) {
+  async awaiting_phone(session, body) {
     if (!isValidPhone(body)) {
-      return checkMaxErrors(session, messages.invalidPhone);
+      return checkMaxErrors(session, await getMessage('invalidPhone'));
     }
     session.phone = formatPhone(body);
     goToStep(session, 'awaiting_segment');
-    return [messages.askSegment(session.name)];
+    return [await getMessage('askSegment', { name: session.name })];
   },
 
-  awaiting_segment(session, body) {
+  async awaiting_segment(session, body) {
     if (!isValidOption(body, 1, 3)) {
-      return checkMaxErrors(session, messages.invalidOption);
+      return checkMaxErrors(session, await getMessage('invalidOption'));
     }
     const option = parseInt(body, 10);
-    const segmentMap = { 1: 'venda', 2: 'locacao', 3: 'manutencao' };
-    const stepMap = { 1: 'awaiting_kva', 2: 'awaiting_contract', 3: 'awaiting_brand' };
-    const msgMap = { 1: messages.askKva, 2: messages.askContract, 3: messages.askBrand };
+    const segmentMap  = { 1: 'venda',        2: 'locacao',            3: 'manutencao'    };
+    const stepMap     = { 1: 'awaiting_kva',  2: 'awaiting_contract',  3: 'awaiting_brand' };
+    const msgKeyMap   = { 1: 'askKva',        2: 'askContract',        3: 'askBrand'       };
 
     session.segment = segmentMap[option];
     goToStep(session, stepMap[option]);
-    return [msgMap[option]];
+    return [await getMessage(msgKeyMap[option])];
   },
 
-  awaiting_kva(session, body) {
+  async awaiting_kva(session, body) {
     if (!isValidOption(body, 1, 6)) {
-      return checkMaxErrors(session, messages.invalidOption);
+      return checkMaxErrors(session, await getMessage('invalidOption'));
     }
     const option = parseInt(body, 10);
     session.qualificationData.kvaRange = option;
@@ -125,52 +143,54 @@ const stepHandlers = {
     if (option === 1) {
       session.isIcp = false;
       goToStep(session, 'awaiting_newsletter_optin');
-      return [messages.outOfIcp(session.name)];
+      return [await getMessage('outOfIcp', { name: session.name })];
     }
 
     session.completed = true;
     persistLead(session);
-    return [messages.closing(session)];
+    return [await buildClosing(session)];
   },
 
-  awaiting_newsletter_optin(session, body) {
+  async awaiting_newsletter_optin(session, body) {
     if (!isValidOption(body, 1, 2)) {
-      return checkMaxErrors(session, messages.invalidOption);
+      return checkMaxErrors(session, await getMessage('invalidOption'));
     }
     const option = parseInt(body, 10);
     session.optInNewsletter = option === 1;
     session.completed = true;
     persistLead(session);
-    return [option === 1 ? messages.outOfIcpOptIn : messages.outOfIcpOptOut];
+    return [await getMessage(option === 1 ? 'outOfIcpOptIn' : 'outOfIcpOptOut')];
   },
 
-  awaiting_contract(session, body) {
+  async awaiting_contract(session, body) {
     if (!isValidOption(body, 1, 4)) {
-      return checkMaxErrors(session, messages.invalidOption);
+      return checkMaxErrors(session, await getMessage('invalidOption'));
     }
     session.qualificationData.contractType = parseInt(body, 10);
     session.completed = true;
     persistLead(session);
-    return [messages.closing(session)];
+    return [await buildClosing(session)];
   },
 
-  awaiting_brand(session, body) {
+  async awaiting_brand(session, body) {
     const brand = body.trim();
     if (brand.length < 2) {
-      return checkMaxErrors(session, messages.invalidOption);
+      return checkMaxErrors(session, await getMessage('invalidOption'));
     }
     session.qualificationData.equipmentBrand = brand;
     goToStep(session, 'awaiting_model');
-    return [messages.askModel];
+    return [await getMessage('askModel')];
   },
 
-  awaiting_model(session, body) {
+  async awaiting_model(session, body) {
     session.qualificationData.equipmentModel = body.trim();
     session.completed = true;
     persistLead(session);
-    return [messages.closing(session)];
+    return [await buildClosing(session)];
   },
 };
+
+// ── handleMessage ─────────────────────────────────────────────────────────────
 
 async function handleMessage(from, body, profileName) {
   const input = (body || '').trim();
@@ -179,7 +199,7 @@ async function handleMessage(from, body, profileName) {
   // Comando de reset
   if (RESET_KEYWORDS.includes(normalized)) {
     sessionStore.reset(from);
-    return [messages.restart, messages.greeting];
+    return [await getMessage('restart'), await getMessage('greeting')];
   }
 
   const session = sessionStore.get(from);
@@ -189,7 +209,7 @@ async function handleMessage(from, body, profileName) {
     sessionStore.reset(from);
     const fresh = sessionStore.get(from);
     goToStep(fresh, 'awaiting_name');
-    return [messages.greeting];
+    return [await getMessage('greeting')];
   }
 
   const handler = stepHandlers[session.step];
@@ -197,7 +217,7 @@ async function handleMessage(from, body, profileName) {
   if (!handler) {
     logger.warn(`Step desconhecido [${from}]: ${session.step}`);
     sessionStore.reset(from);
-    return [messages.greeting];
+    return [await getMessage('greeting')];
   }
 
   const result = await handler(session, input, profileName);

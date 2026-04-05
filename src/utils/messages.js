@@ -84,6 +84,12 @@ const messages = {
     'Sem problemas! Foi um prazer falar com você. 😊\n\nCaso precise de suporte ou mude de ideia, estamos à disposição. Plantão 24h: *0800 779 9009*.\n\nTenha um excelente dia! ⚡',
 
   // ─── ENCERRAMENTO ───────────────────────────────────────────────────────────
+  closing_header:
+    'Perfeito! ✅ Suas informações foram registradas com sucesso.\n\n*Resumo do atendimento:*',
+
+  closing_footer: (team) =>
+    `Nossa equipe *${team}* entrará em contato em até *24 horas úteis*.\n\nPlantão 24h: *0800 779 9009*\n\nObrigado por entrar em contato com a *Essencial Energia*! ⚡`,
+
   closing: (session) => {
     const team = session.segment === 'manutencao' ? 'técnica' : 'comercial';
     const interestLine = buildInterestLine(session);
@@ -134,4 +140,25 @@ const messages = {
     'Sem problemas! Vamos recomeçar do início. 😊',
 };
 
-module.exports = { messages, KVA_LABELS, CONTRACT_LABELS, buildInterestLine };
+// ── getMessage ────────────────────────────────────────────────────────────────
+// Tenta banco (via cache) primeiro; fallback silencioso para messages hardcoded.
+
+const { resolveMessage } = require('../database/messageRepository');
+
+async function getMessage(key, variables = {}) {
+  try {
+    const fromDb = await resolveMessage(key, variables);
+    if (fromDb) return fromDb;
+  } catch (err) {
+    // fallback silencioso — banco indisponível ou template ausente
+  }
+
+  // Fallback: mensagens hardcoded em messages{}
+  const original = messages[key];
+  if (typeof original === 'function') {
+    return original(variables.name || variables.company || variables.team || '');
+  }
+  return original || '';
+}
+
+module.exports = { messages, getMessage, KVA_LABELS, CONTRACT_LABELS, buildInterestLine };
