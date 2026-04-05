@@ -13,6 +13,7 @@ Bot de atendimento via WhatsApp para qualificação de leads, construído com **
 - [Rodando com Docker](#rodando-com-docker)
 - [Rodando com PostgreSQL](#rodando-com-postgresql)
 - [Dashboard](#dashboard)
+- [Editor de Mensagens](#editor-de-mensagens)
 - [Endpoints](#endpoints)
 - [API de Consulta](#api-de-consulta)
 - [Fluxo de Atendimento](#fluxo-de-atendimento)
@@ -306,6 +307,33 @@ curl -o leads_venda_icp.csv "http://localhost:3000/api/leads/export/csv?segment=
 
 ---
 
+## Editor de Mensagens
+
+O dashboard inclui um editor para personalizar todas as mensagens do bot sem alterar código.
+
+Acesse em: **`http://localhost:3000/dashboard`** → aba **Mensagens**
+
+### Funcionalidades
+
+- Edição de todas as mensagens por categoria (Saudação, Identificação, Segmentação, etc.)
+- Preview em tempo real com formatação WhatsApp (`*negrito*`, `_itálico_`, `~riscado~`)
+- Inserção rápida de variáveis (`{{name}}`, `{{company}}`, etc.) com clique no chip
+- Restauração individual ou total para mensagens originais
+- Validação de variáveis obrigatórias antes de salvar (ex: `{{name}}` não pode ser removido de `askDocument`)
+- Fallback automático para mensagens originais se banco indisponível
+
+### Seed inicial
+
+Ao subir pela primeira vez com banco, execute o seed para popular os templates:
+
+```bash
+npm run seed
+```
+
+Isso é idempotente — pode ser executado múltiplas vezes sem duplicar registros.
+
+---
+
 ## Endpoints
 
 | Método | Rota | Descrição |
@@ -319,6 +347,11 @@ curl -o leads_venda_icp.csv "http://localhost:3000/api/leads/export/csv?segment=
 | `GET` | `/api/dashboard/leads-por-dia` | Leads por dia (últimos N dias, padrão 30) |
 | `GET` | `/api/dashboard/funil` | Dados do funil de conversão |
 | `GET` | `/api/dashboard/segmentos` | Breakdown por segmento |
+| `GET` | `/api/messages` | Lista todos os templates de mensagens |
+| `GET` | `/api/messages/:key` | Template de mensagem específico |
+| `PUT` | `/api/messages/:key` | Atualiza texto de um template |
+| `POST` | `/api/messages/reset` | Restaura mensagens originais (key ou todas) |
+| `POST` | `/api/messages/preview` | Preview de mensagem com variáveis |
 | `POST` | `/webhook` | Recebe mensagens do Twilio e retorna TwiML |
 | `POST` | `/status` | Callback de status de entrega do Twilio |
 
@@ -406,12 +439,14 @@ Cada step possui controle de erros: após 3 entradas inválidas consecutivas, o 
 npm test
 ```
 
-62 testes com o runner nativo do Node.js (`node:test`). Sem dependências externas de teste. Não requer banco de dados ou Redis rodando.
+87 testes com o runner nativo do Node.js (`node:test`). Sem dependências externas de teste. Não requer banco de dados ou Redis rodando.
 
 Cobertura:
 - **validators.test.js** — CPF, CNPJ, e-mail, telefone, formatação, opções (37 testes)
 - **botHandler.test.js** — 6 fluxos completos: venda, fora do ICP, locação, manutenção, maxErrors, reset (13 testes)
 - **leadRepository.test.js** — degradação graciosa sem banco e integração fire-and-forget (12 testes)
+- **messageRepository.test.js** — resolveMessage sem banco, substituição de variáveis, cache, fallback via getMessage (12 testes)
+- **messageApi.test.js** — endpoints GET/PUT/POST de mensagens: estrutura, 404, validações 400, 503 sem banco, preview HTML (13 testes)
 
 ---
 
