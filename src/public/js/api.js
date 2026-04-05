@@ -45,4 +45,68 @@ const DashboardAPI = {
   async getHealth() {
     return await this._get('/health') ?? {};
   },
+
+  async getMessages() {
+    return await this._get('/api/messages') ?? { categories: [] };
+  },
+
+  async getMessage(key) {
+    return await this._get(`/api/messages/${key}`) ?? null;
+  },
+
+  async updateMessage(key, content, updatedBy = 'dashboard') {
+    try {
+      const res = await fetch(`/api/messages/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, updated_by: updatedBy }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        return { error: err.error || `HTTP ${res.status}` };
+      }
+      return await res.json();
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
+
+  async resetMessage(key) {
+    try {
+      const res = await fetch('/api/messages/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      return await res.json();
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
+
+  async resetAllMessages() {
+    try {
+      const res = await fetch('/api/messages/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      return await res.json();
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
+
+  async previewMessage(content, variables) {
+    try {
+      const res = await fetch('/api/messages/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, variables }),
+      });
+      return await res.json();
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
 };
