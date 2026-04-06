@@ -200,6 +200,7 @@ async function handleMessage(from, body, profileName) {
   if (RESET_KEYWORDS.includes(normalized)) {
     const fresh = await sessionStore.reset(from);
     goToStep(fresh, 'awaiting_name');
+    await sessionStore.update(from, fresh);
     return [await getMessage('restart'), await getMessage('greeting')];
   }
 
@@ -207,9 +208,9 @@ async function handleMessage(from, body, profileName) {
 
   // Sessão já concluída → reinicia
   if (session.completed) {
-    await sessionStore.reset(from);
-    const fresh = await sessionStore.get(from);
+    const fresh = await sessionStore.reset(from);
     goToStep(fresh, 'awaiting_name');
+    await sessionStore.update(from, fresh);
     return [await getMessage('greeting')];
   }
 
@@ -217,7 +218,9 @@ async function handleMessage(from, body, profileName) {
 
   if (!handler) {
     logger.warn(`Step desconhecido [${from}]: ${session.step}`);
-    await sessionStore.reset(from);
+    const fresh = await sessionStore.reset(from);
+    goToStep(fresh, 'awaiting_name');
+    await sessionStore.update(from, fresh);
     return [await getMessage('greeting')];
   }
 
