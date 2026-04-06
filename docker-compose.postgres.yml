@@ -6,7 +6,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://essencial:essencial@postgres:5432/essencial_bot
+      - DATABASE_URL=postgresql://essencial:4203c92e9647e0595feb41131d2d86ff@postgres:5432/essencial_bot
 
   postgres:
     image: postgres:16-alpine
@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: essencial
-      POSTGRES_PASSWORD: essencial
+      POSTGRES_PASSWORD: 4203c92e9647e0595feb41131d2d86ff
       POSTGRES_DB: essencial_bot
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -23,8 +23,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-    ports:
-      - "5432:5432"
 
 volumes:
   postgres-data:

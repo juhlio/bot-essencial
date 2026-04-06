@@ -198,16 +198,16 @@ async function handleMessage(from, body, profileName) {
 
   // Comando de reset
   if (RESET_KEYWORDS.includes(normalized)) {
-    await sessionStore.reset(from);
+    sessionStore.reset(from);
     return [await getMessage('restart'), await getMessage('greeting')];
   }
 
-  const session = await sessionStore.get(from);
+  const session = sessionStore.get(from);
 
   // Sessão já concluída → reinicia
   if (session.completed) {
-    await sessionStore.reset(from);
-    const fresh = await sessionStore.get(from);
+    sessionStore.reset(from);
+    const fresh = sessionStore.get(from);
     goToStep(fresh, 'awaiting_name');
     return [await getMessage('greeting')];
   }
@@ -216,14 +216,14 @@ async function handleMessage(from, body, profileName) {
 
   if (!handler) {
     logger.warn(`Step desconhecido [${from}]: ${session.step}`);
-    await sessionStore.reset(from);
+    sessionStore.reset(from);
     return [await getMessage('greeting')];
   }
 
   const result = await handler(session, input, profileName);
 
   // Persiste alterações feitas diretamente no objeto da sessão
-  await sessionStore.update(from, session);
+  sessionStore.update(from, session);
 
   return result;
 }
