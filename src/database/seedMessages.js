@@ -66,6 +66,35 @@ const SEED_MESSAGES = [
     description: 'Menu principal de segmentação. Variável {{name}} é o nome do lead.',
   },
 
+  // ─── LOCALIZAÇÃO ─────────────────────────────────────────
+  {
+    key: 'askLocationVenda',
+    category: 'localizacao',
+    label: 'Localização para Venda',
+    content: 'Ótimo! Para qual cidade/estado será o projeto?',
+    variables: ['name'],
+    is_dynamic: true,
+    description: 'Pergunta localização quando lead escolhe segmento Venda.',
+  },
+  {
+    key: 'askLocationLocacao',
+    category: 'localizacao',
+    label: 'Localização para Locação',
+    content: 'Perfeito! Para qual cidade/estado você precisa do gerador?',
+    variables: ['name'],
+    is_dynamic: true,
+    description: 'Pergunta localização quando lead escolhe segmento Locação.',
+  },
+  {
+    key: 'askLocationManutencao',
+    category: 'localizacao',
+    label: 'Localização para Manutenção',
+    content: 'Certo! Em qual cidade/estado está o equipamento?',
+    variables: ['name'],
+    is_dynamic: true,
+    description: 'Pergunta localização quando lead escolhe segmento Manutenção.',
+  },
+
   // ─── QUALIFICAÇÃO: VENDA ──────────────────────────────────
   {
     key: 'askKva',
