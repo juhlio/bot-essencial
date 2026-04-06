@@ -1,7 +1,7 @@
 const { sessionStore } = require('../services/sessionStore');
 const { lookupCNPJ } = require('../services/cnpjService');
 const { validateDocument, isValidEmail, isValidPhone, formatPhone, isValidOption, validateLocation } = require('../validators/validators');
-const { getMessage, buildInterestLine } = require('../utils/messages');
+const { messages, getMessage, buildInterestLine } = require('../utils/messages');
 const { saveLead, saveSession } = require('../database/leadRepository');
 const logger = require('../utils/logger');
 
@@ -124,13 +124,16 @@ const stepHandlers = {
       return checkMaxErrors(session, await getMessage('invalidOption'));
     }
     const option = parseInt(body, 10);
-    const segmentMap  = { 1: 'venda',        2: 'locacao',            3: 'manutencao'    };
-    const stepMap     = { 1: 'awaiting_kva',  2: 'awaiting_contract',  3: 'awaiting_brand' };
-    const msgKeyMap   = { 1: 'askKva',        2: 'askContract',        3: 'askBrand'       };
+    const segmentMap = { 1: 'venda', 2: 'locacao', 3: 'manutencao' };
+    const locationMsgMap = {
+      venda:      (name) => messages.askLocationVenda(name),
+      locacao:    (name) => messages.askLocationLocacao(name),
+      manutencao: (name) => messages.askLocationManutencao(name),
+    };
 
     session.segment = segmentMap[option];
-    goToStep(session, stepMap[option]);
-    return [await getMessage(msgKeyMap[option])];
+    goToStep(session, 'awaiting_location');
+    return [locationMsgMap[session.segment](session.name)];
   },
 
   async awaiting_location(session, body) {
