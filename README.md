@@ -422,7 +422,8 @@ Mensagem recebida
        ├── awaiting_document → awaiting_email (+ lookup CNPJ)
        ├── awaiting_email  → awaiting_phone
        ├── awaiting_phone  → awaiting_segment
-       ├── awaiting_segment → awaiting_kva | awaiting_contract | awaiting_brand
+       ├── awaiting_segment → awaiting_location
+       ├── awaiting_location → awaiting_kva | awaiting_contract | awaiting_brand
        ├── awaiting_kva    → closing (ICP) | awaiting_newsletter_optin (fora do ICP)
        ├── awaiting_contract → closing
        ├── awaiting_brand  → awaiting_model
