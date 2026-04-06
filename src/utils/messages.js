@@ -58,6 +58,16 @@ const messages = {
   askSegment: (name) =>
     `Ótimo, *${name}*! 😊 Como podemos ajudá-lo(a) hoje?\n\n1️⃣ Compra de Gerador\n2️⃣ Locação de Gerador\n3️⃣ Manutenção de Equipamento\n\nDigite o *número* da opção desejada:`,
 
+  // ─── LOCALIZAÇÃO ────────────────────────────────────────────────────────────
+  askLocationVenda: (name) =>
+    `Ótimo, *${name}*! 😊 Para melhor direcionarmos sua solicitação, em qual cidade e estado será o projeto?\n\n_Ex: São Paulo, SP ou Salvador, BA_`,
+
+  askLocationLocacao: (name) =>
+    `Perfeito! 🎯 Para qual cidade e estado você precisa do gerador?\n\n_Ex: Belo Horizonte, MG ou Curitiba, PR_`,
+
+  askLocationManutencao: (name) =>
+    `Certo! ✅ Em qual cidade e estado está o equipamento?\n\n_Ex: Brasília, DF ou Manaus, AM_`,
+
   // ─── VENDA ──────────────────────────────────────────────────────────────────
   askKva:
     'Qual a *faixa de potência* do gerador que você precisa?\n\n1️⃣ Até 50 kVA\n2️⃣ De 50 a 100 kVA\n3️⃣ De 100 a 200 kVA\n4️⃣ De 200 a 300 kVA\n5️⃣ Acima de 300 kVA\n6️⃣ Não sei / Preciso de dimensionamento\n\nDigite o *número* da opção desejada:',
