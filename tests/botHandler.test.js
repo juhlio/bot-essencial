@@ -35,10 +35,11 @@ describe('Fluxo: Venda qualificada (CNPJ)', () => {
       'julio@essencial.com',  // email
       '11999990001',          // telefone
       '1',                    // segmento: venda
+      'São Paulo, SP',        // localização
       '3',                    // kVA: 100-200 kVA (qualificado)
     ]);
 
-    const closing = responses[6][0];
+    const closing = responses[7][0];
     assert.ok(closing.includes('comercial'), 'deve mencionar equipe comercial');
     assert.ok(closing.includes('entrará em contato'), 'deve confirmar contato');
     assert.ok(closing.includes('Julio Ramos'), 'deve incluir o nome no resumo');
@@ -55,11 +56,12 @@ describe('Fluxo: Lead fora do ICP (kVA < 50)', () => {
       '52998224725',
       'ana@test.com',
       '11988880002',
-      '1',  // segmento: venda
-      '1',  // kVA: até 50 kVA → fora do ICP
+      '1',             // segmento: venda
+      'Campinas, SP',  // localização
+      '1',             // kVA: até 50 kVA → fora do ICP
     ]);
 
-    const outOfIcpMsg = responses[6][0];
+    const outOfIcpMsg = responses[7][0];
     assert.ok(outOfIcpMsg.includes('50 kVA'), 'deve mencionar limite de 50 kVA');
   });
 
@@ -71,12 +73,13 @@ describe('Fluxo: Lead fora do ICP (kVA < 50)', () => {
       '52998224725',
       'ana@test.com',
       '11988880002',
-      '1',
-      '1',  // fora do ICP
-      '1',  // opt-in: sim
+      '1',             // segmento: venda
+      'Campinas, SP',  // localização
+      '1',             // fora do ICP
+      '1',             // opt-in: sim
     ]);
 
-    const optInMsg = responses[7][0];
+    const optInMsg = responses[8][0];
     assert.ok(optInMsg.includes('cadastrado'), 'deve confirmar cadastro na lista');
   });
 });
@@ -91,11 +94,12 @@ describe('Fluxo: Locação', () => {
       '52998224725',
       'carlos@test.com',
       '11977770003',
-      '2',  // segmento: locação
-      '1',  // contrato: stand-by
+      '2',                    // segmento: locação
+      'Rio de Janeiro, RJ',   // localização
+      '1',                    // contrato: stand-by
     ]);
 
-    const closing = responses[6][0];
+    const closing = responses[7][0];
     assert.ok(closing.includes('entrará em contato'), 'deve confirmar contato');
     assert.ok(closing.includes('Carlos Lima'), 'deve incluir o nome no resumo');
     assert.ok(closing.includes('Locação'), 'deve mencionar Locação no resumo');
@@ -112,15 +116,68 @@ describe('Fluxo: Manutenção', () => {
       '52998224725',
       'maria@test.com',
       '11966660004',
-      '3',        // segmento: manutenção
-      'Cummins',  // marca
-      'C150 D6',  // modelo
+      '3',            // segmento: manutenção
+      'Brasília, DF', // localização
+      'Cummins',      // marca
+      'C150 D6',      // modelo
     ]);
 
-    const closing = responses[7][0];
+    const closing = responses[8][0];
     assert.ok(closing.includes('técnica'), 'deve mencionar equipe técnica');
     assert.ok(closing.includes('Cummins C150 D6'), 'deve incluir marca e modelo');
     assert.ok(closing.includes('Maria Costa'), 'deve incluir o nome no resumo');
+  });
+});
+
+// ─── Localização ─────────────────────────────────────────────────────────────
+describe('Fluxo: Localização (awaiting_location)', () => {
+  // Sequência base até o step de localização
+  async function converseUntilLocation(phone, segmento) {
+    await converse(phone, [
+      'oi',
+      'Pedro Teste',
+      '52998224725',
+      'pedro@test.com',
+      '11944440001',
+      segmento,
+    ]);
+  }
+
+  it('venda com location válida avança para pergunta de kVA', async () => {
+    const phone = nextPhone();
+    await converseUntilLocation(phone, '1');
+    const replies = await handleMessage(phone, 'São Paulo, SP', 'Test');
+    assert.ok(replies[0].includes('kVA') || replies[0].includes('potência'), 'deve perguntar faixa de kVA');
+  });
+
+  it('locação com location válida avança para pergunta de contrato', async () => {
+    const phone = nextPhone();
+    await converseUntilLocation(phone, '2');
+    const replies = await handleMessage(phone, 'Rio de Janeiro, RJ', 'Test');
+    assert.ok(replies[0].includes('contrato') || replies[0].includes('locação'), 'deve perguntar tipo de contrato');
+  });
+
+  it('manutenção com location válida avança para pergunta de marca', async () => {
+    const phone = nextPhone();
+    await converseUntilLocation(phone, '3');
+    const replies = await handleMessage(phone, 'Brasília, DF', 'Test');
+    assert.ok(replies[0].includes('marca') || replies[0].includes('equipamento'), 'deve perguntar marca do equipamento');
+  });
+
+  it('location inválida (< 3 caracteres) retorna mensagem de erro', async () => {
+    const phone = nextPhone();
+    await converseUntilLocation(phone, '1');
+    const replies = await handleMessage(phone, 'SP', 'Test');
+    assert.ok(!replies[0].includes('kVA'), 'não deve avançar para kVA');
+    assert.ok(replies[0].length > 0, 'deve retornar mensagem de erro');
+  });
+
+  it('location com números retorna mensagem de erro', async () => {
+    const phone = nextPhone();
+    await converseUntilLocation(phone, '1');
+    const replies = await handleMessage(phone, 'São Paulo 123', 'Test');
+    assert.ok(!replies[0].includes('kVA'), 'não deve avançar para kVA');
+    assert.ok(replies[0].includes('números'), 'deve mencionar o problema com números');
   });
 });
 
@@ -180,7 +237,7 @@ describe('Comando de reset', () => {
     // Percorre fluxo completo até completar
     await converse(phone, [
       'oi', 'João Teste', '52998224725',
-      'joao@test.com', '11955550005', '1', '4',
+      'joao@test.com', '11955550005', '1', 'Curitiba, PR', '4',
     ]);
 
     // Nova mensagem após completed
