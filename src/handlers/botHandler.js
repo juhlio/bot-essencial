@@ -1,6 +1,6 @@
 const { sessionStore } = require('../services/sessionStore');
 const { lookupCNPJ } = require('../services/cnpjService');
-const { validateDocument, isValidEmail, isValidPhone, formatPhone, isValidOption } = require('../validators/validators');
+const { validateDocument, isValidEmail, isValidPhone, formatPhone, isValidOption, validateLocation } = require('../validators/validators');
 const { getMessage, buildInterestLine } = require('../utils/messages');
 const { saveLead, saveSession } = require('../database/leadRepository');
 const logger = require('../utils/logger');
@@ -131,6 +131,21 @@ const stepHandlers = {
     session.segment = segmentMap[option];
     goToStep(session, stepMap[option]);
     return [await getMessage(msgKeyMap[option])];
+  },
+
+  async awaiting_location(session, body) {
+    const { isValid, message } = validateLocation(body);
+    if (!isValid) {
+      return checkMaxErrors(session, message);
+    }
+
+    session.qualificationData.location = body.trim();
+
+    const nextStepMap = { venda: 'awaiting_kva', locacao: 'awaiting_contract', manutencao: 'awaiting_brand' };
+    const msgKeyMap  = { venda: 'askKva',        locacao: 'askContract',        manutencao: 'askBrand'       };
+
+    goToStep(session, nextStepMap[session.segment]);
+    return [await getMessage(msgKeyMap[session.segment])];
   },
 
   async awaiting_kva(session, body) {
