@@ -17,23 +17,27 @@ const CONTRACT_LABELS = {
 function buildInterestLine(session) {
   const { segment, qualificationData } = session;
 
+  const locationLine = qualificationData.location
+    ? `📍 *Localização:* ${qualificationData.location}\n`
+    : '';
+
   if (segment === 'venda') {
     const kva = KVA_LABELS[qualificationData.kvaRange] || 'Não informado';
-    return `🔹 *Interesse:* Compra de Gerador — ${kva}`;
+    return `${locationLine}🔹 *Interesse:* Compra de Gerador — ${kva}`;
   }
 
   if (segment === 'locacao') {
     const contract = CONTRACT_LABELS[qualificationData.contractType] || 'Não informado';
-    return `🔹 *Interesse:* Locação de Gerador — ${contract}`;
+    return `${locationLine}🔹 *Interesse:* Locação de Gerador — ${contract}`;
   }
 
   if (segment === 'manutencao') {
     const brand = qualificationData.equipmentBrand || 'Não informado';
     const model = qualificationData.equipmentModel || 'Não informado';
-    return `🔹 *Interesse:* Manutenção de Equipamento — ${brand} ${model}`;
+    return `${locationLine}🔹 *Interesse:* Manutenção de Equipamento — ${brand} ${model}`;
   }
 
-  return `🔹 *Interesse:* Não informado`;
+  return `${locationLine}🔹 *Interesse:* Não informado`;
 }
 
 const messages = {
