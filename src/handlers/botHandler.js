@@ -198,7 +198,8 @@ async function handleMessage(from, body, profileName) {
 
   // Comando de reset
   if (RESET_KEYWORDS.includes(normalized)) {
-    await sessionStore.reset(from);
+    const fresh = await sessionStore.reset(from);
+    goToStep(fresh, 'awaiting_name');
     return [await getMessage('restart'), await getMessage('greeting')];
   }
 
