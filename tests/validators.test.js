@@ -9,6 +9,7 @@ const {
   isValidPhone,
   formatPhone,
   isValidOption,
+  validateLocation,
 } = require('../src/validators/validators');
 
 // ─── CPF ─────────────────────────────────────────────────────────────────────
@@ -189,5 +190,46 @@ describe('isValidOption', () => {
 
   it('aceita "1.5" como 1 via parseInt (comportamento esperado do bot)', () => {
     assert.equal(isValidOption('1.5', 1, 3), true);
+  });
+});
+
+// ─── validateLocation ────────────────────────────────────────────────────────
+describe('validateLocation', () => {
+  it('retorna válido para "São Paulo, SP"', () => {
+    const result = validateLocation('São Paulo, SP');
+    assert.ok(result.isValid);
+  });
+
+  it('retorna inválido para "SP" (< 3 caracteres)', () => {
+    const result = validateLocation('SP');
+    assert.ok(!result.isValid);
+    assert.ok(result.message.includes('curta') || result.message.includes('caracteres'));
+  });
+
+  it('retorna inválido para "São Paulo 123" (contém números)', () => {
+    const result = validateLocation('São Paulo 123');
+    assert.ok(!result.isValid);
+    assert.ok(result.message.includes('números'));
+  });
+
+  it('retorna inválido para string vazia', () => {
+    const result = validateLocation('');
+    assert.ok(!result.isValid);
+  });
+
+  it('retorna inválido para "   " (apenas espaços)', () => {
+    const result = validateLocation('   ');
+    assert.ok(!result.isValid);
+  });
+
+  it('retorna válido para "Belo Horizonte, MG"', () => {
+    const result = validateLocation('Belo Horizonte, MG');
+    assert.ok(result.isValid);
+  });
+
+  it('retorna inválido para texto com > 100 caracteres', () => {
+    const longText = 'A'.repeat(101);
+    const result = validateLocation(longText);
+    assert.ok(!result.isValid);
   });
 });
