@@ -74,6 +74,25 @@ function isValidOption(input, min, max) {
   return !isNaN(n) && Number.isInteger(n) && n >= min && n <= max;
 }
 
+function validateLocation(input) {
+  const value = (input || '').trim();
+
+  if (!value) {
+    return { isValid: false, message: 'A localização não pode estar vazia.' };
+  }
+  if (value.length < 3) {
+    return { isValid: false, message: 'A localização deve ter pelo menos 3 caracteres.' };
+  }
+  if (value.length > 100) {
+    return { isValid: false, message: 'A localização deve ter no máximo 100 caracteres.' };
+  }
+  if (/\d/.test(value)) {
+    return { isValid: false, message: 'A localização não deve conter números.' };
+  }
+
+  return { isValid: true };
+}
+
 module.exports = {
   isValidCPF,
   isValidCNPJ,
@@ -83,6 +102,7 @@ module.exports = {
   isValidPhone,
   formatPhone,
   isValidOption,
+  validateLocation,
 };
 
 if (require.main === module) {
