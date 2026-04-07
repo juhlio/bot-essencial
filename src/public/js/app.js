@@ -188,6 +188,7 @@ function openLeadDetail(lead) {
     ${detailRow('Empresa',  lead.company_name)}
     ${detailRow('E-mail',   lead.email)}
     ${detailRow('Telefone', lead.phone)}
+    ${detailRow('📍 Localização', lead.location || '—')}
 
     <p class="detail-section-title">Qualificação</p>
     ${detailRow('Segmento', SEGMENT_LABELS[lead.segment] || lead.segment)}
