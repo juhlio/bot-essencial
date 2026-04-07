@@ -239,13 +239,15 @@ async function loadLeads() {
 }
 
 async function loadCharts(dias = 30) {
-  const [leadsDia, segmentos, funil] = await Promise.all([
+  const [leadsDia, segmentos, funil, localizacoes] = await Promise.all([
     DashboardAPI.getLeadsPorDia(dias),
     DashboardAPI.getSegmentos(),
     DashboardAPI.getFunil(),
+    DashboardAPI.getLocalizacoes(),
   ]);
   DashboardCharts.renderLeadsPorDia('chart-leads-dia', leadsDia);
   DashboardCharts.renderSegmentos('chart-segmentos', segmentos);
+  DashboardCharts.renderLocalizacaoChart('chart-localizacoes', localizacoes);
   DashboardCharts.renderFunil('chart-funil', funil);
 }
 
