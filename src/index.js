@@ -212,6 +212,28 @@ app.get('/api/dashboard/segmentos', async (req, res) => {
   }
 });
 
+// ─── GET /api/dashboard/localizacoes ─────────────────────────────────────────
+app.get('/api/dashboard/localizacoes', async (req, res) => {
+  if (!requireDb(req, res)) return;
+  try {
+    const db = require('./services/database');
+    const result = await db.query(`
+      SELECT
+        COALESCE(location, 'Não informado') AS location,
+        COUNT(*)::INTEGER AS count
+      FROM leads
+      WHERE location IS NOT NULL AND location != ''
+      GROUP BY location
+      ORDER BY count DESC
+      LIMIT 15
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    logger.error(`GET /api/dashboard/localizacoes error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ─── /api/messages/* ─────────────────────────────────────────────────────────
 
 const CATEGORY_LABELS = {
