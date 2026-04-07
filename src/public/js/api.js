@@ -97,6 +97,10 @@ const DashboardAPI = {
     }
   },
 
+  async getLocalizacoes() {
+    return await this._get('/api/dashboard/localizacoes') ?? [];
+  },
+
   async previewMessage(content, variables) {
     try {
       const res = await fetch('/api/messages/preview', {
