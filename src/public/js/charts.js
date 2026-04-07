@@ -164,6 +164,58 @@ const DashboardCharts = {
     });
   },
 
+  // ── 4. Localização (top 10 barras horizontais) ────────────────────────────
+  renderLocalizacaoChart(canvasId, data) {
+    const ctx = this._canvas(canvasId);
+    if (!ctx || !data?.length) return;
+    this._destroy(canvasId);
+
+    const sorted = [...data]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const labels = sorted.map(d => d.location || 'Não informado');
+    const counts = sorted.map(d => d.count);
+
+    this._instances[canvasId] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Leads por Localização',
+          data: counts,
+          backgroundColor: COLORS.primaryAlpha,
+          borderColor: COLORS.primary,
+          borderWidth: 1,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.parsed.x} leads`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            grid: { color: COLORS.grid },
+            ticks: { color: COLORS.text, precision: 0 },
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: COLORS.text },
+          },
+        },
+      },
+    });
+  },
+
   // ── 3. Funil (barras horizontais) ─────────────────────────────────────────
   renderFunil(canvasId, data) {
     const ctx = this._canvas(canvasId);
