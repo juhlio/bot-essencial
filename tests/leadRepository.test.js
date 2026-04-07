@@ -96,37 +96,37 @@ describe('botHandler — persistência fire-and-forget não quebra fluxo', () =>
   it('fluxo venda qualificada completa sem erro (sem banco)', async () => {
     const phone = nextPhone();
     await assert.doesNotReject(() =>
-      converse(phone, ['oi', 'Julio Ramos', '52998224725', 'julio@t.com', '11999990001', '1', '3'])
+      converse(phone, ['oi', 'Julio Ramos', '52998224725', 'julio@t.com', '11999990001', '1', 'São Paulo, SP', '3'])
     );
   });
 
   it('fluxo locação completa sem erro (sem banco)', async () => {
     const phone = nextPhone();
     await assert.doesNotReject(() =>
-      converse(phone, ['oi', 'Ana Lima', '52998224725', 'ana@t.com', '11988880002', '2', '1'])
+      converse(phone, ['oi', 'Ana Lima', '52998224725', 'ana@t.com', '11988880002', '2', 'Rio de Janeiro, RJ', '1'])
     );
   });
 
   it('fluxo manutenção completa sem erro (sem banco)', async () => {
     const phone = nextPhone();
     await assert.doesNotReject(() =>
-      converse(phone, ['oi', 'Carlos Tech', '52998224725', 'carlos@t.com', '11977770003', '3', 'Cummins', 'C150 D6'])
+      converse(phone, ['oi', 'Carlos Tech', '52998224725', 'carlos@t.com', '11977770003', '3', 'Brasília, DF', 'Cummins', 'C150 D6'])
     );
   });
 
   it('fluxo fora do ICP sem erro (sem banco)', async () => {
     const phone = nextPhone();
     await assert.doesNotReject(() =>
-      converse(phone, ['oi', 'Maria Fora', '52998224725', 'maria@t.com', '11966660004', '1', '1', '1'])
+      converse(phone, ['oi', 'Maria Fora', '52998224725', 'maria@t.com', '11966660004', '1', 'Curitiba, PR', '1', '1'])
     );
   });
 
   it('resposta do bot não é afetada pela ausência do banco', async () => {
     const phone = nextPhone();
     const responses = await converse(phone, [
-      'oi', 'Pedro Teste', '52998224725', 'pedro@t.com', '11955550005', '1', '4',
+      'oi', 'Pedro Teste', '52998224725', 'pedro@t.com', '11955550005', '1', 'Manaus, AM', '4',
     ]);
-    const closing = responses[6][0];
+    const closing = responses[7][0];
     assert.ok(closing.includes('entrará em contato'), 'mensagem de encerramento deve ser entregue');
     assert.ok(closing.includes('Pedro Teste'), 'nome do lead deve estar no resumo');
   });
