@@ -27,11 +27,11 @@ async function saveLead(session) {
     INSERT INTO leads (
       phone_number, name, document_type, document, company_name,
       email, phone, segment, kva_range, contract_type,
-      equipment_brand, equipment_model, is_icp, opt_in_newsletter, tags
+      equipment_brand, equipment_model, location, is_icp, opt_in_newsletter, tags
     ) VALUES (
       $1, $2, $3, $4, $5,
       $6, $7, $8, $9, $10,
-      $11, $12, $13, $14, $15
+      $11, $12, $13, $14, $15, $16
     )
     RETURNING *
   `;
@@ -49,6 +49,7 @@ async function saveLead(session) {
     q.contractType || null,
     q.equipmentBrand || null,
     q.equipmentModel || null,
+    q.location || null,
     session.isIcp,
     session.optInNewsletter !== undefined ? session.optInNewsletter : null,
     tags,

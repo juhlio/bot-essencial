@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS leads (
   contract_type    INTEGER,
   equipment_brand  VARCHAR(255),
   equipment_model  VARCHAR(255),
+  location         VARCHAR(100),
   is_icp           BOOLEAN      NOT NULL DEFAULT true,
   opt_in_newsletter BOOLEAN,
   tags             TEXT[],
@@ -48,6 +49,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     END
   ) STORED
 );
+
+-- -----------------------------------------------------------------------------
+-- Migrações incrementais
+-- -----------------------------------------------------------------------------
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS location VARCHAR(100);
 
 -- -----------------------------------------------------------------------------
 -- Índices
