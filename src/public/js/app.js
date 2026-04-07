@@ -45,7 +45,7 @@ function badge(cls, text) {
 
 function setLoading(show) {
   const tbody = $('leads-tbody');
-  if (show) tbody.innerHTML = '<tr><td colspan="6" class="table-loading">⏳ Carregando...</td></tr>';
+  if (show) tbody.innerHTML = '<tr><td colspan="7" class="table-loading">⏳ Carregando...</td></tr>';
 }
 
 function showUnavailable() {
@@ -53,7 +53,7 @@ function showUnavailable() {
     '<div style="grid-column:1/-1;padding:2rem;color:var(--text-muted);text-align:center;">' +
     '⚠️ Dashboard indisponível — banco de dados não configurado.</div>';
   $('leads-tbody').innerHTML =
-    '<tr><td colspan="6" class="table-loading">Banco de dados não configurado.</td></tr>';
+    '<tr><td colspan="7" class="table-loading">Banco de dados não configurado.</td></tr>';
 }
 
 // ── renderCards ───────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ function renderLeadsTable(leads, total) {
   const tbody = $('leads-tbody');
 
   if (!leads || !leads.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Nenhum lead encontrado.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Nenhum lead encontrado.</td></tr>';
     $('leads-pagination').innerHTML = '';
     return;
   }
@@ -112,6 +112,7 @@ function renderLeadsTable(leads, total) {
       <td><strong>${l.name}</strong></td>
       <td>${fmtDoc(l.document_type, l.document)}</td>
       <td>${l.email}</td>
+      <td>${l.location || '—'}</td>
       <td>${badge(l.segment, SEGMENT_LABELS[l.segment] || l.segment)}</td>
       <td>${l.is_icp ? badge('icp', '✅ ICP') : badge('fora', '⚠️ Fora')}</td>
       <td>${fmtDate(l.created_at)}</td>
