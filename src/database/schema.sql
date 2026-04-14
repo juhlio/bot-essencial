@@ -52,40 +52,19 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- -----------------------------------------------------------------------------
 -- Tabela: rd_sync_logs
+-- Auditoria de todas as sincronizações com a RD Station.
+-- ON DELETE CASCADE: ao remover um lead, remove também seus logs de sync.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS rd_sync_logs (
   id               SERIAL PRIMARY KEY,
-  lead_id          INTEGER REFERENCES leads(id) ON DELETE SET NULL,
-  action           VARCHAR(10) NOT NULL,
-  rd_contact_id    BIGINT,
+  lead_id          INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+  action           VARCHAR(20) NOT NULL,   -- 'create' | 'update'
+  rd_contact_id    INTEGER,
   request_payload  JSONB,
   response_payload JSONB,
   error_message    TEXT,
   created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_rd_sync_logs_lead_id ON rd_sync_logs(lead_id);
-
--- -----------------------------------------------------------------------------
--- Migrações incrementais
--- -----------------------------------------------------------------------------
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS location        VARCHAR(100);
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_contact_id   BIGINT;
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_synced_at    TIMESTAMP WITH TIME ZONE;
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_sync_status  VARCHAR(20);
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_sync_error   TEXT;
-
--- -----------------------------------------------------------------------------
--- Índices
--- -----------------------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS idx_leads_phone       ON leads(phone_number);
-CREATE INDEX IF NOT EXISTS idx_leads_document    ON leads(document);
-CREATE INDEX IF NOT EXISTS idx_leads_segment     ON leads(segment);
-CREATE INDEX IF NOT EXISTS idx_leads_created_at  ON leads(created_at);
-CREATE INDEX IF NOT EXISTS idx_leads_is_icp      ON leads(is_icp);
-
-CREATE INDEX IF NOT EXISTS idx_sessions_phone      ON sessions(phone_number);
-CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
 
 -- -----------------------------------------------------------------------------
 -- Tabela: message_templates
@@ -103,5 +82,51 @@ CREATE TABLE IF NOT EXISTS message_templates (
   updated_by  VARCHAR(100)  DEFAULT 'system'
 );
 
-CREATE INDEX IF NOT EXISTS idx_msg_tpl_key      ON message_templates(key);
-CREATE INDEX IF NOT EXISTS idx_msg_tpl_category ON message_templates(category);
+-- -----------------------------------------------------------------------------
+-- Migrações incrementais
+-- Idempotentes: seguras para rodar em bancos já existentes.
+-- -----------------------------------------------------------------------------
+
+-- Captura de localização do projeto
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS location        VARCHAR(100);
+
+-- Rastreamento de sincronização com RD Station
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_contact_id   INTEGER;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_synced_at    TIMESTAMP WITH TIME ZONE;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_sync_error   TEXT;
+
+-- rd_sync_status com DEFAULT e CHECK constraint.
+-- O ADD COLUMN IF NOT EXISTS é idempotente para a coluna.
+-- O ADD CONSTRAINT usa DO block para ser idempotente (PG não suporta IF NOT EXISTS em constraints).
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_sync_status  VARCHAR(20) DEFAULT 'pending';
+
+DO $$
+BEGIN
+  ALTER TABLE leads
+    ADD CONSTRAINT leads_rd_sync_status_check
+    CHECK (rd_sync_status IN ('pending', 'synced', 'error', 'skipped'));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;  -- constraint já existe, ignora
+END;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Índices
+-- -----------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_leads_phone         ON leads(phone_number);
+CREATE INDEX IF NOT EXISTS idx_leads_document      ON leads(document);
+CREATE INDEX IF NOT EXISTS idx_leads_segment       ON leads(segment);
+CREATE INDEX IF NOT EXISTS idx_leads_created_at    ON leads(created_at);
+CREATE INDEX IF NOT EXISTS idx_leads_is_icp        ON leads(is_icp);
+
+-- Índices RD Station: aceleram consultas de status de sync e lookup por contato
+CREATE INDEX IF NOT EXISTS idx_leads_rd_contact_id ON leads(rd_contact_id);
+CREATE INDEX IF NOT EXISTS idx_leads_rd_synced_at  ON leads(rd_synced_at);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_phone      ON sessions(phone_number);
+CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
+
+CREATE INDEX IF NOT EXISTS idx_rd_sync_logs_lead_id ON rd_sync_logs(lead_id);
+
+CREATE INDEX IF NOT EXISTS idx_msg_tpl_key         ON message_templates(key);
+CREATE INDEX IF NOT EXISTS idx_msg_tpl_category    ON message_templates(category);
