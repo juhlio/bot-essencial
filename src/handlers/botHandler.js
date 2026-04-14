@@ -3,6 +3,7 @@ const { lookupCNPJ } = require('../services/cnpjService');
 const { validateDocument, isValidEmail, isValidPhone, formatPhone, isValidOption, validateLocation } = require('../validators/validators');
 const { messages, getMessage, buildInterestLine } = require('../utils/messages');
 const { saveLead, saveSession } = require('../database/leadRepository');
+const { syncLeadToRD } = require('../database/rdStationRepository');
 const logger = require('../utils/logger');
 
 const RESET_KEYWORDS = ['reiniciar', 'recomeçar', 'voltar', 'menu'];
@@ -18,6 +19,13 @@ function persistLead(session) {
     .then((lead) => {
       if (lead) {
         logger.info(`Lead persistido no banco [id=${lead.id}]`);
+        syncLeadToRD(session, lead.id)
+          .then((result) => {
+            logger.info(`RD sync result: ${JSON.stringify(result)}`);
+          })
+          .catch((err) => {
+            logger.error(`RD sync error: ${err.message}`);
+          });
         return saveSession(session.phoneNumber, session, lead.id);
       }
       return saveSession(session.phoneNumber, session, null);

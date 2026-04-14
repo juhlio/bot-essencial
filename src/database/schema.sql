@@ -51,9 +51,29 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 -- -----------------------------------------------------------------------------
+-- Tabela: rd_sync_logs
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS rd_sync_logs (
+  id               SERIAL PRIMARY KEY,
+  lead_id          INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+  action           VARCHAR(10) NOT NULL,
+  rd_contact_id    BIGINT,
+  request_payload  JSONB,
+  response_payload JSONB,
+  error_message    TEXT,
+  created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rd_sync_logs_lead_id ON rd_sync_logs(lead_id);
+
+-- -----------------------------------------------------------------------------
 -- Migrações incrementais
 -- -----------------------------------------------------------------------------
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS location VARCHAR(100);
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS location        VARCHAR(100);
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_contact_id   BIGINT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_synced_at    TIMESTAMP WITH TIME ZONE;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_sync_status  VARCHAR(20);
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS rd_sync_error   TEXT;
 
 -- -----------------------------------------------------------------------------
 -- Índices
