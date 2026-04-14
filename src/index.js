@@ -417,12 +417,14 @@ app.post('/status', (req, res) => {
 });
 
 // ─── Limpeza periódica de sessões ────────────────────────────────────────────
+// .unref() garante que o timer não impeça o processo de encerrar naturalmente
+// (importante para testes com node:test e graceful shutdown)
 setInterval(async () => {
   const removed = await sessionStore.cleanExpired();
   if (removed > 0) {
     logger.info(`Limpeza de sessões: ${removed} sessão(ões) expirada(s) removida(s)`);
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 async function startServer() {
