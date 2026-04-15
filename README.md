@@ -109,6 +109,9 @@ npm run dev
 | `DATABASE_URL` | URL de conexão PostgreSQL (opcional) | vazio = sem persistência |
 | `REDIS_URL` | URL do Redis (opcional) | vazio = memória |
 | `LOG_LEVEL` | Nível de log do Winston | `info` |
+| `RD_API_KEY` | API Key do RD Station Marketing | — |
+| `RD_API_URL` | URL base da API RD Station | `https://api.rd.services` |
+| `RD_ENABLED` | Ativa envio de leads ao RD Station | `false` |
 
 ---
 
@@ -304,6 +307,71 @@ curl -o leads.csv http://localhost:3000/api/leads/export/csv
 # Exportar apenas leads ICP do segmento venda
 curl -o leads_venda_icp.csv "http://localhost:3000/api/leads/export/csv?segment=venda&is_icp=true"
 ```
+
+---
+
+## Integração RD Station
+
+Quando um lead completa o fluxo de atendimento, o bot envia os dados automaticamente para o **RD Station Marketing** via API v2.0.
+
+### Como funciona
+
+- A chamada é **fire-and-forget**: ocorre em background após o bot responder ao usuário, sem bloquear nem atrasar o atendimento
+- Se a RD Station estiver fora do ar ou retornar erro, o bot registra o erro em log e em `rd_sync_logs` sem impactar o fluxo
+- Leads fora do ICP (`is_icp = false`) só são enviados se o usuário optou pela newsletter
+
+### Como configurar
+
+No `.env` (ou nas variáveis do container), defina:
+
+```env
+RD_API_KEY=sua_chave_aqui          # API Key do RD Station Marketing
+RD_API_URL=https://api.rd.services # URL base (sem /platform)
+RD_ENABLED=true                    # false desabilita sem remover as variáveis
+```
+
+> **Atenção:** os nomes corretos são `RD_API_KEY`, `RD_API_URL` e `RD_ENABLED`  
+> (não `RD_STATION_API_KEY` etc. — nomes distintos causam silêncio total na integração)
+
+### Campos enviados ao RD Station
+
+| Campo padrão | Fonte no bot |
+|---|---|
+| `name` | Nome informado pelo usuário |
+| `email` | E-mail informado |
+| `mobile_phone` | Telefone informado |
+| `city` / `state` | Extraídos do campo Localização (`Cidade, UF`) |
+| `tags` | `["whatsapp", "<segmento>", "qualificado"/"fora_icp"]` |
+
+| Campo customizado | Fonte no bot |
+|---|---|
+| `cpf_cnpj` | Documento (CPF/CNPJ) |
+| `empresa` | Nome da empresa (CNPJ) |
+| `potencia_kva` | Faixa de kVA selecionada |
+| `tipo_contrato` | Tipo de contrato (locação) |
+| `marca_gerador` | Marca do equipamento (manutenção) |
+| `modelo_gerador` | Modelo do equipamento (manutenção) |
+
+### Verificação
+
+```bash
+# Verificar se a integração está ativa
+curl http://localhost:3000/health
+
+# Acompanhar sincronizações em tempo real
+docker logs -f essencial-bot | grep rdSync
+
+# Consultar histórico de sincronizações no banco
+psql $DATABASE_URL -c "SELECT lead_id, action, rd_contact_id, created_at FROM rd_sync_logs ORDER BY created_at DESC LIMIT 20;"
+```
+
+### Auditoria
+
+Cada tentativa de sync (sucesso ou erro) é registrada em `rd_sync_logs`. A tabela `leads` também recebe:
+- `rd_contact_id` — ID do contato na RD Station
+- `rd_synced_at` — data/hora da última sincronização
+- `rd_sync_status` — `pending` | `synced` | `error` | `skipped`
+- `rd_sync_error` — mensagem de erro (quando `status = error`)
 
 ---
 

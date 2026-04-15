@@ -10,6 +10,10 @@ services:
     env_file: .env
     environment:
       - NODE_ENV=production
+      # RD Station Marketing — nomes exatos lidos pelo código (rdStationService.js)
+      - RD_API_KEY=${RD_API_KEY:-}
+      - RD_API_URL=${RD_API_URL:-https://api.rd.services}
+      - RD_ENABLED=${RD_ENABLED:-false}
     volumes:
       - bot-logs:/app/logs
     healthcheck:
