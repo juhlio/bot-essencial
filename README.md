@@ -54,12 +54,14 @@ essencial-bot/
 │   │   ├── schema.sql            # Schema das tabelas
 │   │   ├── migrate.js            # Script de migração
 │   │   ├── leadRepository.js     # CRUD de leads
+│   │   ├── rdStationRepository.js # Sync de leads ao RD Station + auditoria
 │   │   └── dashboardRepository.js # Queries agregadas para o dashboard
 │   ├── services/
 │   │   ├── database.js           # Pool de conexão PostgreSQL
 │   │   ├── sessionStore.js       # Roteador memória/Redis
 │   │   ├── redisSessionStore.js  # Backend Redis com fallback
-│   │   └── cnpjService.js        # Consulta BrasilAPI
+│   │   ├── cnpjService.js        # Consulta BrasilAPI
+│   │   └── rdStationService.js   # Envio de conversões ao RD Station
 │   ├── validators/
 │   │   └── validators.js         # CPF, CNPJ, e-mail, telefone
 │   └── utils/
@@ -109,9 +111,9 @@ npm run dev
 | `DATABASE_URL` | URL de conexão PostgreSQL (opcional) | vazio = sem persistência |
 | `REDIS_URL` | URL do Redis (opcional) | vazio = memória |
 | `LOG_LEVEL` | Nível de log do Winston | `info` |
-| `RD_API_KEY` | API Key do RD Station Marketing | — |
-| `RD_API_URL` | URL base da API RD Station | `https://api.rd.services` |
-| `RD_ENABLED` | Ativa envio de leads ao RD Station | `false` |
+| `RD_STATION_ENABLED` | Ativar integração RD Station | `false` |
+| `RD_STATION_API_KEY` | API Key do RD Station Marketing | vazio = desabilitado |
+| `RD_STATION_CONVERSION_ID` | Identificador da conversão | `whatsapp-bot-essencial` |
 
 ---
 
@@ -312,7 +314,7 @@ curl -o leads_venda_icp.csv "http://localhost:3000/api/leads/export/csv?segment=
 
 ## Integração RD Station
 
-Quando um lead completa o fluxo de atendimento, o bot envia os dados automaticamente para o **RD Station Marketing** via API v2.0.
+Quando um lead completa o fluxo de atendimento, o bot envia os dados automaticamente para o **RD Station Marketing** via **endpoint de Conversão (API Key)**.
 
 ### Como funciona
 
@@ -325,52 +327,56 @@ Quando um lead completa o fluxo de atendimento, o bot envia os dados automaticam
 No `.env` (ou nas variáveis do container), defina:
 
 ```env
-RD_API_KEY=sua_chave_aqui          # API Key do RD Station Marketing
-RD_API_URL=https://api.rd.services # URL base (sem /platform)
-RD_ENABLED=true                    # false desabilita sem remover as variáveis
+RD_STATION_ENABLED=true                          # false desabilita sem remover as variáveis
+RD_STATION_API_KEY=sua_chave_aqui                # API Key (gerar em App Publisher no RD Station)
+RD_STATION_CONVERSION_ID=whatsapp-bot-essencial  # Identificador da conversão (opcional)
 ```
 
-> **Atenção:** os nomes corretos são `RD_API_KEY`, `RD_API_URL` e `RD_ENABLED`  
-> (não `RD_STATION_API_KEY` etc. — nomes distintos causam silêncio total na integração)
+### Como verificar
+
+```bash
+# Conferir se a integração está ativa no health check
+curl http://localhost:3000/health
+# → "rdStation": "configured"  (quando habilitada e com chave)
+# → "rdStation": "not_configured"  (quando desabilitada ou sem chave)
+
+# Acompanhar envios em tempo real nos logs
+docker logs -f essencial-bot | grep "RD Station"
+
+# Consultar histórico de sincronizações no banco
+psql $DATABASE_URL -c "SELECT lead_id, action, created_at, error_message FROM rd_sync_logs ORDER BY created_at DESC LIMIT 20;"
+```
 
 ### Campos enviados ao RD Station
 
+O evento enviado é do tipo `CONVERSION` / família `CDP`. O `payload` contém:
+
 | Campo padrão | Fonte no bot |
 |---|---|
+| `conversion_identifier` | Valor de `RD_STATION_CONVERSION_ID` |
 | `name` | Nome informado pelo usuário |
 | `email` | E-mail informado |
-| `mobile_phone` | Telefone informado |
-| `city` / `state` | Extraídos do campo Localização (`Cidade, UF`) |
-| `tags` | `["whatsapp", "<segmento>", "qualificado"/"fora_icp"]` |
+| `personal_phone` / `mobile_phone` | Telefone informado |
+| `company_name` | Nome da empresa (quando CNPJ) |
+| `tags` | `["whatsapp", "<segmento>", "qualificado"` ou `"fora_do_icp"]` |
 
 | Campo customizado | Fonte no bot |
 |---|---|
-| `cpf_cnpj` | Documento (CPF/CNPJ) |
-| `empresa` | Nome da empresa (CNPJ) |
-| `potencia_kva` | Faixa de kVA selecionada |
-| `tipo_contrato` | Tipo de contrato (locação) |
-| `marca_gerador` | Marca do equipamento (manutenção) |
-| `modelo_gerador` | Modelo do equipamento (manutenção) |
+| `cf_cpf_cnpj` | Documento (CPF/CNPJ) |
+| `cf_empresa_lead` | Nome da empresa |
+| `cf_potencia_kva` | Faixa de kVA (label textual, ex: `"De 100 a 200 kVA"`) |
+| `cf_tipo_contrato` | Tipo de contrato (label textual, ex: `"Stand-by"`) |
+| `cf_marca_gerador` | Marca do equipamento (manutenção) |
+| `cf_modelo_gerador` | Modelo do equipamento (manutenção) |
 
-### Verificação
+Campos com valor `null` ou `undefined` são omitidos automaticamente do payload.
 
-```bash
-# Verificar se a integração está ativa
-curl http://localhost:3000/health
-
-# Acompanhar sincronizações em tempo real
-docker logs -f essencial-bot | grep rdSync
-
-# Consultar histórico de sincronizações no banco
-psql $DATABASE_URL -c "SELECT lead_id, action, rd_contact_id, created_at FROM rd_sync_logs ORDER BY created_at DESC LIMIT 20;"
-```
-
-### Auditoria
+### Auditoria no banco
 
 Cada tentativa de sync (sucesso ou erro) é registrada em `rd_sync_logs`. A tabela `leads` também recebe:
-- `rd_contact_id` — ID do contato na RD Station
+
 - `rd_synced_at` — data/hora da última sincronização
-- `rd_sync_status` — `pending` | `synced` | `error` | `skipped`
+- `rd_sync_status` — `synced` | `error` | `skipped`
 - `rd_sync_error` — mensagem de erro (quando `status = error`)
 
 ---

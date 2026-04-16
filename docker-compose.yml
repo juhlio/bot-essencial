@@ -11,9 +11,9 @@ services:
     environment:
       - NODE_ENV=production
       # RD Station Marketing — nomes exatos lidos pelo código (rdStationService.js)
-      - RD_API_KEY=${RD_API_KEY:-}
-      - RD_API_URL=${RD_API_URL:-https://api.rd.services}
-      - RD_ENABLED=${RD_ENABLED:-false}
+      - RD_STATION_ENABLED=${RD_STATION_ENABLED:-false}
+      - RD_STATION_API_KEY=${RD_STATION_API_KEY:-}
+      - RD_STATION_CONVERSION_ID=${RD_STATION_CONVERSION_ID:-whatsapp-bot-essencial}
     volumes:
       - bot-logs:/app/logs
     healthcheck:

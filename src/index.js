@@ -39,6 +39,9 @@ app.get('/health', async (req, res) => {
     service: 'essencial-energia-whatsapp-bot',
     sessions: await sessionStore.count(),
     database: dbStatus,
+    rdStation: process.env.RD_STATION_ENABLED === 'true' && process.env.RD_STATION_API_KEY
+      ? 'configured'
+      : 'not_configured',
     uptime: process.uptime(),
   });
 });
