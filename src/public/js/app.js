@@ -314,6 +314,12 @@ async function init() {
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Redireciona para login se não autenticado
+  if (typeof Auth !== 'undefined' && !Auth.isAuthenticated()) {
+    window.location.href = '/login';
+    return;
+  }
+
   init();
 
   $('btn-refresh').addEventListener('click', async () => {
@@ -348,6 +354,15 @@ document.addEventListener('DOMContentLoaded', () => {
   $('modal-close').addEventListener('click', closeModal);
   $('modal-backdrop').addEventListener('click', closeModal);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // Logout
+  const btnLogout = $('btn-logout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      btnLogout.disabled = true;
+      if (typeof Auth !== 'undefined') await Auth.logout();
+    });
+  }
 
   // Verifica status do banco a cada 30 segundos
   setInterval(checkHealth, 30_000);

@@ -1,79 +1,88 @@
-/* ── auth.js — Lógica de login para login.html ──────────────────────────── */
-(function () {
-  'use strict';
+/* ── auth.js ─────────────────────────────────────────────────────────────────
+ * Módulo de autenticação reutilizável.
+ *
+ * Browser  → window.Auth = Auth (instância padrão com localStorage real)
+ * Node.js  → const { createAuth } = require('./auth')
+ *            const auth = createAuth({ storage, fetchFn, redirect })
+ * ──────────────────────────────────────────────────────────────────────────── */
 
-  const form      = document.getElementById('login-form');
-  const emailEl   = document.getElementById('email');
-  const passwordEl= document.getElementById('password');
-  const btnSubmit = document.getElementById('btn-submit');
-  const btnLabel  = document.getElementById('btn-label');
-  const errorMsg  = document.getElementById('error-msg');
+const TOKEN_KEY = 'auth_token';
+const USER_KEY  = 'auth_user';
 
-  if (!form) return; // segurança caso o script seja carregado em outra página
+/**
+ * Cria uma instância do módulo de autenticação com injeção de dependências.
+ *
+ * @param {object} [deps]
+ * @param {object}   [deps.storage]  - Objeto compatível com localStorage (getItem/setItem/removeItem)
+ * @param {Function} [deps.fetchFn]  - Substituto para window.fetch (útil em testes)
+ * @param {Function} [deps.redirect] - Substituto para window.location.href (útil em testes)
+ */
+function createAuth(deps) {
+  deps = deps || {};
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
-  function showError(msg) {
-    errorMsg.textContent = msg;
-    errorMsg.hidden = false;
-    errorMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  var storage  = deps.storage  || (typeof localStorage  !== 'undefined' ? localStorage  : null);
+  var fetchFn  = deps.fetchFn  || (typeof fetch         !== 'undefined' ? fetch         : null);
+  var redirect = deps.redirect || function (url) {
+    if (typeof window !== 'undefined') window.location.href = url;
+  };
+
+  // ── getAuthToken ────────────────────────────────────────────────────────────
+  function getAuthToken() {
+    return storage ? storage.getItem(TOKEN_KEY) : null;
   }
 
-  function hideError() {
-    errorMsg.hidden = true;
-    errorMsg.textContent = '';
+  // ── setAuthToken ────────────────────────────────────────────────────────────
+  function setAuthToken(token) {
+    if (storage) storage.setItem(TOKEN_KEY, token);
   }
 
-  function setLoading(on) {
-    btnSubmit.disabled = on;
-    btnSubmit.classList.toggle('loading', on);
-    btnLabel.textContent = on ? 'Entrando...' : 'Entrar';
+  // ── clearAuthToken ──────────────────────────────────────────────────────────
+  // Remove token e dados do usuário do storage.
+  function clearAuthToken() {
+    if (!storage) return;
+    storage.removeItem(TOKEN_KEY);
+    storage.removeItem(USER_KEY);
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    hideError();
+  // ── isAuthenticated ─────────────────────────────────────────────────────────
+  function isAuthenticated() {
+    var t = getAuthToken();
+    return !!t && t.length > 0;
+  }
 
-    const email    = emailEl.value.trim();
-    const password = passwordEl.value;
+  // ── getAuthHeader ───────────────────────────────────────────────────────────
+  // Retorna objeto de cabeçalhos pronto para spread em chamadas fetch.
+  function getAuthHeader() {
+    var token = getAuthToken();
+    return token ? { Authorization: 'Bearer ' + token } : {};
+  }
 
-    // Validação client-side rápida
-    if (!email || !password) {
-      showError('Preencha e-mail e senha.');
-      return;
-    }
-    if (password.length < 6) {
-      showError('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await fetch('/auth/login', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (response.ok) {
-        // Persiste credenciais para uso nas páginas autenticadas
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('auth_user', JSON.stringify({
-          userId: data.userId,
-          email:  data.email,
-          role:   data.role,
-        }));
-        window.location.href = '/dashboard';
-      } else {
-        showError(data.error || 'Credenciais inválidas. Tente novamente.');
+  // ── logout ──────────────────────────────────────────────────────────────────
+  // Revoga o token no servidor, limpa o storage e redireciona para /login.
+  async function logout() {
+    var token = getAuthToken();
+    if (token && fetchFn) {
+      try {
+        await fetchFn('/auth/logout', {
+          method:  'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeader()),
+        });
+      } catch (_) {
+        // Ignora erros de rede — o token local é removido de qualquer forma
       }
-    } catch {
-      showError('Erro de conexão. Verifique sua internet e tente novamente.');
-    } finally {
-      setLoading(false);
     }
-  });
-})();
+    clearAuthToken();
+    redirect('/login');
+  }
+
+  return { getAuthToken, setAuthToken, clearAuthToken, isAuthenticated, getAuthHeader, logout };
+}
+
+/* ── Inicialização por ambiente ────────────────────────────────────────────── */
+if (typeof module !== 'undefined' && module.exports) {
+  // Node.js / testes
+  module.exports = { createAuth };
+} else {
+  // Browser: instância padrão disponível globalmente
+  window.Auth = createAuth();
+}

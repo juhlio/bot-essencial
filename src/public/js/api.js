@@ -1,7 +1,18 @@
 const DashboardAPI = {
+  // Retorna os cabeçalhos de autorização se Auth estiver disponível
+  _authHeaders() {
+    return (typeof Auth !== 'undefined') ? Auth.getAuthHeader() : {};
+  },
+
+  // Redireciona para login em caso de 401
+  _handle401() {
+    if (typeof Auth !== 'undefined') Auth.logout();
+  },
+
   async _get(url) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: this._authHeaders() });
+      if (res.status === 401) { this._handle401(); return null; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     } catch (err) {
@@ -58,7 +69,7 @@ const DashboardAPI = {
     try {
       const res = await fetch(`/api/messages/${key}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
         body: JSON.stringify({ content, updated_by: updatedBy }),
       });
       if (!res.ok) {
@@ -75,7 +86,7 @@ const DashboardAPI = {
     try {
       const res = await fetch('/api/messages/reset', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
         body: JSON.stringify({ key }),
       });
       return await res.json();
@@ -88,7 +99,7 @@ const DashboardAPI = {
     try {
       const res = await fetch('/api/messages/reset', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
         body: JSON.stringify({}),
       });
       return await res.json();
@@ -105,7 +116,7 @@ const DashboardAPI = {
     try {
       const res = await fetch('/api/messages/preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
         body: JSON.stringify({ content, variables }),
       });
       return await res.json();

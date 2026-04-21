@@ -153,7 +153,9 @@ describe('GET /login — entrega da página', () => {
 });
 
 // =============================================================================
-// Suite 2 — Arquivo auth.js acessível
+// Suite 2 — Arquivo auth.js acessível e estrutura correta
+// auth.js agora é um módulo utilitário (createAuth + window.Auth).
+// A lógica do formulário está no script inline de login.html.
 // =============================================================================
 describe('GET /dashboard/js/auth.js', () => {
 
@@ -171,20 +173,33 @@ describe('GET /dashboard/js/auth.js', () => {
     );
   });
 
-  it('contém fetch para /auth/login', async () => {
+  it('exporta createAuth para uso em Node.js / testes', async () => {
     const { text } = await get('/dashboard/js/auth.js');
-    assert.ok(text.includes('/auth/login'), 'auth.js deve fazer fetch para /auth/login');
+    assert.ok(text.includes('createAuth'), 'deve exportar createAuth');
+    assert.ok(text.includes('module.exports'), 'deve ter exports para Node.js');
   });
 
-  it('referencia localStorage para persistir token', async () => {
+  it('define window.Auth para uso no browser', async () => {
     const { text } = await get('/dashboard/js/auth.js');
-    assert.ok(text.includes('localStorage'), 'deve usar localStorage');
-    assert.ok(text.includes('auth_token'),   'deve salvar como "auth_token"');
+    assert.ok(text.includes('window.Auth'), 'deve atribuir window.Auth');
   });
 
-  it('redireciona para /dashboard após login bem-sucedido', async () => {
+  it('expõe as 6 funções utilitárias', async () => {
     const { text } = await get('/dashboard/js/auth.js');
-    assert.ok(text.includes('/dashboard'), 'deve redirecionar para /dashboard');
+    for (const fn of ['getAuthToken', 'setAuthToken', 'clearAuthToken',
+                      'isAuthenticated', 'getAuthHeader', 'logout']) {
+      assert.ok(text.includes(fn), `deve conter função ${fn}`);
+    }
+  });
+
+  it('usa auth_token como chave no storage', async () => {
+    const { text } = await get('/dashboard/js/auth.js');
+    assert.ok(text.includes('auth_token'), 'deve usar chave "auth_token"');
+  });
+
+  it('chama POST /auth/logout na função logout', async () => {
+    const { text } = await get('/dashboard/js/auth.js');
+    assert.ok(text.includes('/auth/logout'), 'logout deve chamar /auth/logout');
   });
 
 });
