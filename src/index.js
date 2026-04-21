@@ -13,12 +13,14 @@ const { getStats, getLeadsPorDia, getFunil, getSegmentoDetalhado } = require('./
 const { getAllMessages, getMessageByKey, updateMessage, resetMessage, resetAllMessages } = require('./database/messageRepository');
 const { SEED_MESSAGES } = require('./database/seedMessages');
 const authHandler = require('./handlers/authHandler');
+const { requireAuth } = require('./middleware/authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+// Arquivos estáticos do dashboard (css, js, imagens) — sem proteção JWT
 app.use('/dashboard', express.static(path.join(__dirname, 'public')));
 // Serve apenas o diretório js/ em /js para que index.html possa carregar
 // /js/auth.js de forma síncrona no <head> (guard de autenticação).
@@ -31,6 +33,14 @@ app.use('/auth', authHandler);
 app.get('/login', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
+
+// ─── GET /dashboard (protegido) ──────────────────────────────────────────────
+app.get('/dashboard', requireAuth, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ─── Proteção de todos os endpoints /api ─────────────────────────────────────
+app.use('/api', requireAuth);
 
 // ─── GET /health ─────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {

@@ -9,18 +9,24 @@ process.env.DATABASE_URL = '';
 process.env.REDIS_URL = '';
 process.env.BOT_CLOSE_TIMEOUT_MIN = '40';
 process.env.CNPJ_API_URL = '';
+process.env.JWT_SECRET = 'test-secret-messageapi';
 
+const authService = require('../src/services/authService');
 const app = require('../src/index');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 let server;
 let baseUrl;
+let authToken;
 
 async function req(method, path, body) {
   const url = `${baseUrl}${path}`;
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
@@ -33,14 +39,18 @@ const put  = (path, body) => req('PUT',  path, body);
 const post = (path, body) => req('POST', path, body);
 
 // ─── Setup / Teardown ─────────────────────────────────────────────────────────
-before(() => new Promise(resolve => {
-  server = http.createServer(app);
-  server.listen(0, '127.0.0.1', () => {
-    const { port } = server.address();
-    baseUrl = `http://127.0.0.1:${port}`;
-    resolve();
+before(async () => {
+  authToken = authService.generateJWT(1, 'test@test.com');
+
+  await new Promise(resolve => {
+    server = http.createServer(app);
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address();
+      baseUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
   });
-}));
+});
 
 after(() => new Promise(resolve => server.close(resolve)));
 
