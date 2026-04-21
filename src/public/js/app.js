@@ -314,11 +314,19 @@ async function init() {
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Redireciona para login se não autenticado
+  // Redireciona para login se não autenticado (guard secundário — o primário
+  // está no script inline do index.html, antes do body ser renderizado)
   if (typeof Auth !== 'undefined' && !Auth.isAuthenticated()) {
     window.location.href = '/login';
     return;
   }
+
+  // Exibe e-mail do usuário autenticado no header
+  try {
+    const _user = JSON.parse(localStorage.getItem('auth_user') || '{}');
+    const emailEl = document.getElementById('user-email');
+    if (emailEl && _user.email) emailEl.textContent = _user.email;
+  } catch (_) {}
 
   init();
 

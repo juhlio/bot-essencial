@@ -20,6 +20,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use('/dashboard', express.static(path.join(__dirname, 'public')));
+// Serve apenas o diretório js/ em /js para que index.html possa carregar
+// /js/auth.js de forma síncrona no <head> (guard de autenticação).
+app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 
 // ─── Auth router ──────────────────────────────────────────────────────────────
 app.use('/auth', authHandler);

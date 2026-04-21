@@ -3,28 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Essencial Energia — Dashboard</title>
+  <title>Essencial Bot — Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
+  <!-- auth.js carregado de forma síncrona para que o guard no body possa
+       chamar Auth.isAuthenticated() antes de qualquer renderização. -->
+  <script src="/js/auth.js"></script>
 </head>
 <body>
+
+  <!-- ── Auth guard ─────────────────────────────────────────────────────────
+       Executa ANTES de renderizar qualquer elemento. Se o usuário não estiver
+       autenticado, redireciona imediatamente para a página de login.
+  ──────────────────────────────────────────────────────────────────────── -->
+  <script>
+    if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
+      window.location.href = '/login';
+    }
+  </script>
 
   <header class="header">
     <div class="header-inner">
       <div class="header-brand">
         <span class="header-icon">⚡</span>
         <div>
-          <h1 class="header-title">Essencial Energia</h1>
+          <h1 class="header-title">Essencial Bot</h1>
           <p class="header-subtitle">Dashboard de Leads</p>
         </div>
       </div>
       <div class="header-meta">
+        <span id="user-greeting" class="header-sessions" title="Usuário autenticado">
+          Olá, <strong id="user-email">—</strong>
+        </span>
         <span id="sessions-count" class="header-sessions" title="Sessões ativas no momento">
           <span id="sessions-value">—</span> sessões
         </span>
         <span id="db-status" class="badge badge--loading">Conectando...</span>
         <span id="last-update" class="last-update"></span>
         <button id="btn-refresh" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
-        <button id="btn-logout" class="btn-refresh" title="Sair do painel" style="margin-left:.5rem;">Sair</button>
+        <button id="btn-logout" class="btn-refresh" title="Encerrar sessão">Logout</button>
       </div>
     </div>
   </header>
@@ -182,8 +198,8 @@
     </div>
   </div>
 
+  <!-- auth.js já foi carregado no <head>; os demais scripts são deferred. -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="js/auth.js" defer></script>
   <script src="js/api.js" defer></script>
   <script src="js/charts.js" defer></script>
   <script src="js/messages.js" defer></script>
