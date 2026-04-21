@@ -12,6 +12,7 @@ const { listLeads, countLeads, findLeadById, exportLeads } = require('./database
 const { getStats, getLeadsPorDia, getFunil, getSegmentoDetalhado } = require('./database/dashboardRepository');
 const { getAllMessages, getMessageByKey, updateMessage, resetMessage, resetAllMessages } = require('./database/messageRepository');
 const { SEED_MESSAGES } = require('./database/seedMessages');
+const authHandler = require('./handlers/authHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +20,14 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use('/dashboard', express.static(path.join(__dirname, 'public')));
+
+// ─── Auth router ──────────────────────────────────────────────────────────────
+app.use('/auth', authHandler);
+
+// ─── GET /login ───────────────────────────────────────────────────────────────
+app.get('/login', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
 
 // ─── GET /health ─────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {

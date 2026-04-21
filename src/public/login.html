@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essencial Bot — Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:        #1B3A5C;
+      --primary-dark:   #122840;
+      --primary-light:  #2a5080;
+      --secondary:      #E8671C;
+      --secondary-dark: #c45212;
+      --bg:             #F5F7FA;
+      --surface:        #FFFFFF;
+      --border:         #DDE3EC;
+      --text:           #2C3E50;
+      --text-muted:     #7F8C8D;
+      --danger:         #E74C3C;
+      --radius:         10px;
+      --shadow:         0 4px 32px rgba(0, 0, 0, .14);
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    /* ── Card ────────────────────────────────────────────────────────────── */
+    .login-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      width: 100%;
+      max-width: 420px;
+      overflow: hidden;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    .login-header {
+      background: var(--primary);
+      padding: 2rem 2rem 1.75rem;
+      text-align: center;
+      color: #fff;
+    }
+
+    .login-header .logo {
+      font-size: 2.75rem;
+      line-height: 1;
+      margin-bottom: 0.6rem;
+      display: block;
+    }
+
+    .login-header h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+    }
+
+    .login-header p {
+      font-size: 0.82rem;
+      opacity: 0.72;
+      margin-top: 0.25rem;
+    }
+
+    /* ── Body ────────────────────────────────────────────────────────────── */
+    .login-body {
+      padding: 2rem;
+    }
+
+    /* ── Error banner ────────────────────────────────────────────────────── */
+    .error-msg {
+      background: #fdf2f2;
+      color: var(--danger);
+      border: 1.5px solid #f5c0c0;
+      border-radius: 6px;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.875rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .error-msg::before {
+      content: '⚠';
+      flex-shrink: 0;
+    }
+
+    /* ── Form ────────────────────────────────────────────────────────────── */
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+      letter-spacing: 0.01em;
+    }
+
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+      -webkit-appearance: none;
+    }
+
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      border-color: var(--primary-light);
+      box-shadow: 0 0 0 3px rgba(27, 58, 92, 0.1);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+
+    /* ── Submit button ───────────────────────────────────────────────────── */
+    .btn-submit {
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 0.78rem 1rem;
+      background: var(--secondary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: background 0.18s, opacity 0.18s, transform 0.1s;
+      position: relative;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      background: var(--secondary-dark);
+    }
+
+    .btn-submit:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-submit .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    .btn-submit.loading .spinner { display: inline-block; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────────── */
+    .login-footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      text-align: center;
+    }
+
+    .login-footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.83rem;
+      transition: color 0.18s;
+    }
+
+    .login-footer a:hover {
+      color: var(--primary);
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .login-header { padding: 1.5rem; }
+      .login-body   { padding: 1.5rem; }
+      .login-footer { padding: 0.875rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card" role="main">
+
+    <div class="login-header">
+      <span class="logo" aria-hidden="true">⚡</span>
+      <h1>Essencial Bot</h1>
+      <p>Painel de Administração</p>
+    </div>
+
+    <div class="login-body">
+
+      <div id="error-msg" class="error-msg" hidden role="alert"></div>
+
+      <form id="login-form" novalidate>
+
+        <div class="form-group">
+          <label for="email">E-mail</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="seu@email.com"
+            required
+            autocomplete="email"
+            autofocus
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="password">Senha</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="••••••••"
+            required
+            autocomplete="current-password"
+            minlength="6"
+          >
+        </div>
+
+        <button type="submit" id="btn-submit" class="btn-submit">
+          <span class="spinner" aria-hidden="true"></span>
+          <span id="btn-label">Entrar</span>
+        </button>
+
+      </form>
+    </div>
+
+    <div class="login-footer">
+      <a href="/">← Voltar ao site</a>
+    </div>
+
+  </div>
+
+  <script src="/dashboard/js/auth.js"></script>
+</body>
+</html>
