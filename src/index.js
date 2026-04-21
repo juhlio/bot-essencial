@@ -461,6 +461,9 @@ async function startServer() {
       logger.error(`Erro ao executar migrações: ${err.message}`);
       logger.warn('Bot iniciando sem persistência no banco de dados');
     }
+
+    const seedUsers = require('./database/seedUsers');
+    seedUsers().catch(err => logger.error(`Seed error: ${err.message}`));
   }
 
   app.listen(PORT, () => {
