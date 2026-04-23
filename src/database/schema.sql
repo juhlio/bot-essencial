@@ -83,6 +83,21 @@ CREATE TABLE IF NOT EXISTS message_templates (
 );
 
 -- -----------------------------------------------------------------------------
+-- Tabela: users
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+  id            SERIAL PRIMARY KEY,
+  email         VARCHAR(255) NOT NULL UNIQUE,
+  password_hash TEXT         NOT NULL,
+  role          VARCHAR(20)  NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'viewer')),
+  last_login    TIMESTAMP WITH TIME ZONE,
+  created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- -----------------------------------------------------------------------------
 -- Migrações incrementais
 -- Idempotentes: seguras para rodar em bancos já existentes.
 -- -----------------------------------------------------------------------------
