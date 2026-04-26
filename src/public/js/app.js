@@ -57,8 +57,24 @@ function formatPhoneDisplay(phone) {
   return m ? `+${m[1]} (${m[2]}) ${m[3]}-${m[4]}` : `+${num}`;
 }
 
+// Remove prefixos e caracteres não-numéricos, retorna apenas dígitos
+function cleanPhoneNumber(phone) {
+  return String(phone || '').replace(/^whatsapp:\+?/, '').replace(/\D/g, '');
+}
+
+// Constrói URL do WhatsApp Web para abrir conversa direta
+function buildWhatsAppWebUrl(phone, text = 'Olá') {
+  const number = cleanPhoneNumber(phone);
+  return `https://web.whatsapp.com/send?phone=${number}&text=${encodeURIComponent(text)}`;
+}
+
+// Abre WhatsApp Web em nova aba
+function openWhatsAppWeb(phone) {
+  window.open(buildWhatsAppWebUrl(phone), '_blank', 'noopener,noreferrer');
+}
+
 function phoneToWaLink(phone) {
-  return `https://wa.me/${phone.replace(/^whatsapp:\+?/, '')}`;
+  return buildWhatsAppWebUrl(phone);
 }
 
 // ── renderHumanConversations ──────────────────────────────────────────────────
