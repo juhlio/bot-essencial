@@ -14,6 +14,7 @@ const { getAllMessages, getMessageByKey, updateMessage, resetMessage, resetAllMe
 const { SEED_MESSAGES } = require('./database/seedMessages');
 const authHandler = require('./handlers/authHandler');
 const { requireAuth } = require('./middleware/authMiddleware');
+const { saveMessageToHistory } = require('./database/messageHistoryRepository');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -415,6 +416,13 @@ app.post('/webhook', async (req, res) => {
   const profileName = req.body.ProfileName || '';
 
   logger.info(`Mensagem recebida de ${from} (${profileName}): ${body}`);
+
+  // Sessão em atendimento humano: só salva histórico, não processa como bot
+  const session = await sessionStore.get(from);
+  if (session.handler_type === 'human') {
+    await saveMessageToHistory(from, body, 'client');
+    return res.status(200).json({ status: 'saved_for_human' });
+  }
 
   const twiml = new MessagingResponse();
 
