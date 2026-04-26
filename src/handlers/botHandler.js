@@ -22,6 +22,36 @@ function transferToHuman(session) {
   return 'Um agente entrará em contato em breve!';
 }
 
+async function endHumanConversation(from) {
+  const exists = await sessionStore.has(from);
+  if (!exists) {
+    return { error: 'SESSION_NOT_FOUND', message: 'Sessão não encontrada' };
+  }
+
+  const session = await sessionStore.get(from);
+
+  if (session.handler_type !== 'human') {
+    return { error: 'NOT_IN_HUMAN_MODE', message: 'Sessão não está em atendimento humano' };
+  }
+
+  const endedAt = new Date();
+  const durationSec = session.human_started_at
+    ? Math.round((endedAt - new Date(session.human_started_at)) / 1000)
+    : null;
+
+  session.handler_type = 'bot';
+  session.step = session.previous_step || 'closing';
+  session.human_ended_at = endedAt;
+
+  await sessionStore.update(from, session);
+
+  logger.info(
+    `Atendimento humano encerrado [${from}] — duração: ${durationSec !== null ? `${durationSec}s` : 'desconhecida'}`
+  );
+
+  return { status: 'success', session };
+}
+
 function logPayload(phoneNumber) {
   const payload = sessionStore.toPayload(phoneNumber);
   logger.info(`Lead finalizado [${phoneNumber}]: ${JSON.stringify(payload)}`);
@@ -284,4 +314,4 @@ async function handleMessage(from, body, profileName) {
   return result;
 }
 
-module.exports = { handleMessage, detectHumanRequest, transferToHuman };
+module.exports = { handleMessage, detectHumanRequest, transferToHuman, endHumanConversation };

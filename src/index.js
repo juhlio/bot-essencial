@@ -5,7 +5,7 @@ const { twiml: { MessagingResponse } } = require('twilio');
 
 const logger = require('./utils/logger');
 const { sessionStore } = require('./services/sessionStore');
-const { handleMessage } = require('./handlers/botHandler');
+const { handleMessage, endHumanConversation } = require('./handlers/botHandler');
 const path = require('path');
 const { runMigrations } = require('./database/migrate');
 const { listLeads, countLeads, findLeadById, exportLeads } = require('./database/leadRepository');
@@ -405,6 +405,32 @@ app.post('/api/messages/preview', (req, res) => {
     res.json({ preview, whatsapp_preview });
   } catch (err) {
     logger.error(`POST /api/messages/preview error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── POST /api/conversations/:from/end-human ─────────────────────────────────
+app.post('/api/conversations/:from/end-human', async (req, res) => {
+  const from = decodeURIComponent(req.params.from);
+  const { reason } = req.body || {};
+
+  if (reason) {
+    logger.info(`Encerramento solicitado [${from}] — motivo: ${reason}`);
+  }
+
+  try {
+    const result = await endHumanConversation(from);
+
+    if (result.error === 'SESSION_NOT_FOUND') {
+      return res.status(404).json({ error: result.message });
+    }
+    if (result.error === 'NOT_IN_HUMAN_MODE') {
+      return res.status(409).json({ error: result.message });
+    }
+
+    res.json(result);
+  } catch (err) {
+    logger.error(`POST /api/conversations/:from/end-human error: ${err.message}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -209,6 +209,17 @@ class RedisSessionStore {
     return this.create(phoneNumber);
   }
 
+  async has(phoneNumber) {
+    if (this.usingFallback) return this.fallback.has(phoneNumber);
+    try {
+      const exists = await this.client.exists(this._key(phoneNumber));
+      return exists === 1;
+    } catch (err) {
+      logger.error(`Redis has error: ${err.message}`);
+      return this.fallback.has(phoneNumber);
+    }
+  }
+
   async cleanExpired() {
     // Redis expira automaticamente via TTL; limpa apenas o fallback em memória
     if (!this.usingFallback) return 0;
