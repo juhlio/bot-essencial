@@ -409,6 +409,33 @@ app.post('/api/messages/preview', (req, res) => {
   }
 });
 
+// ─── GET /api/conversations/human-active ─────────────────────────────────────
+app.get('/api/conversations/human-active', async (req, res) => {
+  try {
+    const { getMessagesByPhone } = require('./database/messageHistoryRepository');
+    const sessions = await sessionStore.list();
+    const humanSessions = sessions.filter(s => s.handler_type === 'human');
+
+    const conversations = await Promise.all(
+      humanSessions.map(async (s) => {
+        const messages = await getMessagesByPhone(s.phoneNumber, 5);
+        return {
+          phone: s.phoneNumber,
+          name: s.name || null,
+          human_started_at: s.human_started_at,
+          previous_step: s.previous_step,
+          last_messages: [...messages].reverse(),
+        };
+      })
+    );
+
+    res.json(conversations);
+  } catch (err) {
+    logger.error(`GET /api/conversations/human-active error: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ─── POST /api/conversations/:from/end-human ─────────────────────────────────
 app.post('/api/conversations/:from/end-human', async (req, res) => {
   const from = decodeURIComponent(req.params.from);

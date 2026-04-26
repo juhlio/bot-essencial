@@ -108,6 +108,24 @@ const DashboardAPI = {
     }
   },
 
+  async getHumanConversations() {
+    return await this._get('/api/conversations/human-active') ?? [];
+  },
+
+  async endHumanConversation(from) {
+    try {
+      const res = await fetch(`/api/conversations/${encodeURIComponent(from)}/end-human`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
+        body: JSON.stringify({}),
+      });
+      if (res.status === 401) { this._handle401(); return null; }
+      return await res.json();
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
+
   async getLocalizacoes() {
     return await this._get('/api/dashboard/localizacoes') ?? [];
   },

@@ -209,6 +209,19 @@ class RedisSessionStore {
     return this.create(phoneNumber);
   }
 
+  async list() {
+    if (this.usingFallback) return Array.from(this.fallback.values());
+    try {
+      const keys = await this.client.keys('session:*');
+      if (!keys.length) return [];
+      const values = await Promise.all(keys.map(k => this.client.get(k)));
+      return values.filter(Boolean).map(v => JSON.parse(v));
+    } catch (err) {
+      logger.error(`Redis list error: ${err.message}`);
+      return Array.from(this.fallback.values());
+    }
+  }
+
   async has(phoneNumber) {
     if (this.usingFallback) return this.fallback.has(phoneNumber);
     try {

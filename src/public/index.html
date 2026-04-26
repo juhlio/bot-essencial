@@ -54,6 +54,7 @@
     <nav class="dashboard-tabs">
       <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
       <button class="tab-btn" data-tab="mensagens">💬 Mensagens</button>
+      <button class="tab-btn" data-tab="humanas">👤 Conversas Humanas<span id="human-count-badge" class="tab-badge"></span></button>
     </nav>
 
     <div id="tab-dashboard">
@@ -180,6 +181,18 @@
         </div>
       </section>
     </div><!-- /#tab-mensagens -->
+
+    <div id="tab-humanas" hidden>
+      <section class="section">
+        <div class="human-header">
+          <h2 class="section-title">Conversas em Atendimento Humano</h2>
+          <button id="btn-refresh-humanas" class="btn-refresh" title="Atualizar lista agora">🔄 Atualizar</button>
+        </div>
+        <div id="human-conversations-list" class="human-conv-list">
+          <div style="padding:2rem;text-align:center;color:var(--text-muted);">Carregando...</div>
+        </div>
+      </section>
+    </div><!-- /#tab-humanas -->
 
   </main>
 

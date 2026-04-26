@@ -15,6 +15,132 @@ const CONTRACT_LABELS = {
 };
 const SEGMENT_LABELS = { venda: 'Venda', locacao: 'Locação', manutencao: 'Manutenção' };
 
+// ── Helpers de conversas humanas ──────────────────────────────────────────────
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function timeSince(iso) {
+  if (!iso) return '';
+  const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (mins < 1)  return 'agora';
+  if (mins < 60) return `${mins} min`;
+  const hrs  = Math.floor(mins / 60);
+  const rest = mins % 60;
+  return rest > 0 ? `${hrs}h ${rest}min` : `${hrs}h`;
+}
+
+function formatPhoneDisplay(phone) {
+  const num = phone.replace(/^whatsapp:\+?/, '');
+  const m = num.match(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/);
+  return m ? `+${m[1]} (${m[2]}) ${m[3]}-${m[4]}` : `+${num}`;
+}
+
+function phoneToWaLink(phone) {
+  return `https://wa.me/${phone.replace(/^whatsapp:\+?/, '')}`;
+}
+
+// ── renderHumanConversations ──────────────────────────────────────────────────
+function renderHumanConversations(list) {
+  const container = $('human-conversations-list');
+  const badge = $('human-count-badge');
+  if (badge) badge.textContent = list.length > 0 ? ` (${list.length})` : '';
+
+  if (!list.length) {
+    container.innerHTML =
+      '<div class="human-conv-empty">Nenhuma conversa em atendimento humano no momento.</div>';
+    return;
+  }
+
+  const SENDER_ICON = { client: '👤', bot: '🤖', agent: '👨‍💼' };
+
+  container.innerHTML = list.map(conv => {
+    const phoneDisplay = formatPhoneDisplay(conv.phone);
+    const waLink       = phoneToWaLink(conv.phone);
+    const startedAt    = fmtTime(conv.human_started_at);
+    const duration     = timeSince(conv.human_started_at);
+
+    const messagesHtml = conv.last_messages && conv.last_messages.length
+      ? conv.last_messages.map(m => `
+          <div class="human-msg human-msg--${m.sender}">
+            <span class="human-msg__icon">${SENDER_ICON[m.sender] || '💬'}</span>
+            <span class="human-msg__text">${escapeHtml(m.message_text)}</span>
+            <span class="human-msg__time">${fmtTime(m.created_at)}</span>
+          </div>`).join('')
+      : '<p class="human-msg-empty">Sem histórico de mensagens registrado.</p>';
+
+    return `
+      <div class="human-conv-card" data-phone="${escapeHtml(conv.phone)}">
+        <div class="human-conv-card__header">
+          <div class="human-conv-card__identity">
+            <span class="human-conv-card__avatar">👤</span>
+            <div>
+              <strong class="human-conv-card__name">${escapeHtml(conv.name || 'Cliente')}</strong>
+              <a href="${waLink}" target="_blank" rel="noopener noreferrer"
+                 class="human-conv-card__phone">${phoneDisplay}</a>
+            </div>
+          </div>
+          <div class="human-conv-card__meta">
+            <span class="human-conv-card__started">Início: ${startedAt}</span>
+            ${duration ? `<span class="human-conv-card__duration">${duration}</span>` : ''}
+          </div>
+        </div>
+        <div class="human-conv-card__messages">
+          <p class="human-conv-card__messages-label">Últimas mensagens:</p>
+          <div class="human-conv-card__messages-list">${messagesHtml}</div>
+        </div>
+        <div class="human-conv-card__actions">
+          <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn-wa">
+            📱 Abrir WhatsApp
+          </a>
+          <button class="btn-end-human btn-danger" data-phone="${escapeHtml(conv.phone)}">
+            ✓ Encerrar Conversa
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('.btn-end-human').forEach(btn => {
+    btn.addEventListener('click', () => handleEndHuman(btn.dataset.phone));
+  });
+}
+
+// ── loadHumanConversations ────────────────────────────────────────────────────
+async function loadHumanConversations() {
+  const list = await DashboardAPI.getHumanConversations();
+  renderHumanConversations(list);
+}
+
+// ── handleEndHuman ────────────────────────────────────────────────────────────
+async function handleEndHuman(phone) {
+  const display = formatPhoneDisplay(phone);
+  if (!confirm(`Encerrar o atendimento humano de ${display}?\n\nO bot voltará a responder este contato.`)) return;
+
+  const btn = document.querySelector(`.btn-end-human[data-phone="${CSS.escape(phone)}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Encerrando…'; }
+
+  const result = await DashboardAPI.endHumanConversation(phone);
+
+  if (!result || result.error) {
+    showToast(result?.error ? `Erro: ${result.error}` : 'Erro ao encerrar atendimento.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Encerrar Conversa'; }
+  } else {
+    showToast('Atendimento encerrado. Bot retomará o atendimento.');
+    await loadHumanConversations();
+  }
+}
+
 // ── Estado ────────────────────────────────────────────────────────────────────
 let currentOffset = 0;
 const PAGE_LIMIT  = 20;
@@ -372,9 +498,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Botão de refresh da aba de conversas humanas
+  const btnRefreshHumanas = $('btn-refresh-humanas');
+  if (btnRefreshHumanas) {
+    btnRefreshHumanas.addEventListener('click', async () => {
+      btnRefreshHumanas.classList.add('is-spinning');
+      await loadHumanConversations();
+      btnRefreshHumanas.classList.remove('is-spinning');
+    });
+  }
+
   // Verifica status do banco a cada 30 segundos
   setInterval(checkHealth, 30_000);
 
   // Atualiza stats e gráficos a cada 60 segundos (sem recarregar tabela)
   setInterval(refreshBackground, 60_000);
+
+  // Auto-refresh de conversas humanas a cada 5 segundos (só quando a aba está ativa)
+  setInterval(() => {
+    if (!$('tab-humanas')?.hidden) loadHumanConversations();
+  }, 5_000);
 });

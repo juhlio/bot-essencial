@@ -66,6 +66,10 @@ class SessionStore {
     return this.sessions.has(phoneNumber);
   }
 
+  list() {
+    return Array.from(this.sessions.values());
+  }
+
   cleanExpired() {
     const timeoutMs = (parseInt(process.env.BOT_CLOSE_TIMEOUT_MIN) || 40) * 60 * 1000;
     const now = Date.now();

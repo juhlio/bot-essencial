@@ -206,18 +206,22 @@ async function loadMessages() {
 document.addEventListener('DOMContentLoaded', () => {
   // Navegação por abas
   const tabBtns = document.querySelectorAll('.tab-btn');
-  const tabDashboard = document.getElementById('tab-dashboard');
-  const tabMensagens = document.getElementById('tab-mensagens');
 
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       tabBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const tab = btn.dataset.tab;
-      tabDashboard.hidden = (tab !== 'dashboard');
-      tabMensagens.hidden = (tab !== 'mensagens');
+
+      document.querySelectorAll('[id^="tab-"]').forEach(el => { el.hidden = true; });
+      const selected = document.getElementById(`tab-${tab}`);
+      if (selected) selected.hidden = false;
+
       if (tab === 'mensagens' && document.getElementById('messages-list').children.length <= 1) {
         loadMessages();
+      }
+      if (tab === 'humanas' && typeof loadHumanConversations === 'function') {
+        loadHumanConversations();
       }
     });
   });

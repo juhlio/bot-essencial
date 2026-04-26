@@ -815,6 +815,200 @@ body {
 .toast--success { background: var(--success); }
 .toast--error   { background: var(--danger); }
 
+/* ── Tab badge ───────────────────────────────────────────────────────────── */
+.tab-badge {
+  display: inline-block;
+  background: var(--secondary);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.45rem;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  line-height: 1.6;
+}
+.tab-badge:empty { display: none; }
+
+/* ── Conversas Humanas ───────────────────────────────────────────────────── */
+.human-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.human-conv-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.25rem;
+}
+@media (max-width: 600px) { .human-conv-list { grid-template-columns: 1fr; } }
+
+.human-conv-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.human-conv-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--transition);
+  border-top: 3px solid var(--secondary);
+}
+.human-conv-card:hover { box-shadow: var(--shadow); }
+
+.human-conv-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: #fafbfc;
+}
+
+.human-conv-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.human-conv-card__avatar {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.human-conv-card__name {
+  font-size: 0.9rem;
+  color: var(--primary);
+  display: block;
+}
+
+.human-conv-card__phone {
+  font-size: 0.78rem;
+  color: var(--secondary);
+  text-decoration: none;
+  display: block;
+  font-weight: 500;
+}
+.human-conv-card__phone:hover { text-decoration: underline; }
+
+.human-conv-card__meta {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.human-conv-card__started,
+.human-conv-card__duration {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: block;
+}
+
+.human-conv-card__duration {
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.human-conv-card__messages {
+  padding: 0.85rem 1.25rem;
+  flex: 1;
+}
+
+.human-conv-card__messages-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.human-conv-card__messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.human-msg {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.human-msg__icon { flex-shrink: 0; font-size: 0.75rem; }
+
+.human-msg__text {
+  flex: 1;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.human-msg--agent .human-msg__text { color: var(--primary); font-weight: 500; }
+
+.human-msg__time {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.human-msg-empty {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.human-conv-card__actions {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: #fafbfc;
+}
+
+.btn-wa {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #25D366;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition);
+  white-space: nowrap;
+}
+.btn-wa:hover { background: #1ebe5d; }
+
+.human-conv-card__actions .btn-danger {
+  flex: 1;
+  font-size: 0.78rem;
+}
+.human-conv-card__actions .btn-danger:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
