@@ -413,23 +413,38 @@ app.post('/api/messages/preview', (req, res) => {
 app.get('/api/conversations/human-active', async (req, res) => {
   try {
     const { getMessagesByPhone } = require('./database/messageHistoryRepository');
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+
     const sessions = await sessionStore.list();
-    const humanSessions = sessions.filter(s => s.handler_type === 'human');
+    const humanSessions = sessions
+      .filter(s => s.handler_type === 'human')
+      .sort((a, b) => new Date(b.human_started_at) - new Date(a.human_started_at))
+      .slice(0, limit);
+
+    const now = Date.now();
 
     const conversations = await Promise.all(
       humanSessions.map(async (s) => {
         const messages = await getMessagesByPhone(s.phoneNumber, 5);
+        const started = s.human_started_at ? new Date(s.human_started_at).getTime() : null;
         return {
-          phone: s.phoneNumber,
-          name: s.name || null,
-          human_started_at: s.human_started_at,
-          previous_step: s.previous_step,
-          last_messages: [...messages].reverse(),
+          phone_from:        s.phoneNumber,
+          name:              s.name              || null,
+          cpf_cnpj:          s.document          || null,
+          email:             s.email             || null,
+          human_started_at:  s.human_started_at  || null,
+          duration_seconds:  started ? Math.round((now - started) / 1000) : null,
+          previous_step:     s.previous_step     || null,
+          last_messages:     [...messages].reverse().map(m => ({
+            sender:     m.sender,
+            text:       m.message_text,
+            created_at: m.created_at,
+          })),
         };
       })
     );
 
-    res.json(conversations);
+    res.json({ total: conversations.length, conversations });
   } catch (err) {
     logger.error(`GET /api/conversations/human-active error: ${err.message}`);
     res.status(500).json({ error: 'Internal server error' });

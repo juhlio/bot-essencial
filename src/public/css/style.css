@@ -904,6 +904,13 @@ body {
 }
 .human-conv-card__phone:hover { text-decoration: underline; }
 
+.human-conv-card__extra {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 0.1rem;
+}
+
 .human-conv-card__meta {
   text-align: right;
   flex-shrink: 0;

@@ -31,6 +31,16 @@ function fmtTime(iso) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function fmtDuration(seconds) {
+  if (seconds == null) return '';
+  if (seconds < 60)   return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60)      return `${mins} min`;
+  const hrs  = Math.floor(mins / 60);
+  const rest = mins % 60;
+  return rest > 0 ? `${hrs}h ${rest}min` : `${hrs}h`;
+}
+
 function timeSince(iso) {
   if (!iso) return '';
   const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
@@ -52,9 +62,10 @@ function phoneToWaLink(phone) {
 }
 
 // ── renderHumanConversations ──────────────────────────────────────────────────
-function renderHumanConversations(list) {
+function renderHumanConversations(data) {
+  const list      = (data && data.conversations) ? data.conversations : (Array.isArray(data) ? data : []);
   const container = $('human-conversations-list');
-  const badge = $('human-count-badge');
+  const badge     = $('human-count-badge');
   if (badge) badge.textContent = list.length > 0 ? ` (${list.length})` : '';
 
   if (!list.length) {
@@ -66,22 +77,27 @@ function renderHumanConversations(list) {
   const SENDER_ICON = { client: '👤', bot: '🤖', agent: '👨‍💼' };
 
   container.innerHTML = list.map(conv => {
-    const phoneDisplay = formatPhoneDisplay(conv.phone);
-    const waLink       = phoneToWaLink(conv.phone);
+    const phone        = conv.phone_from || conv.phone || '';
+    const phoneDisplay = formatPhoneDisplay(phone);
+    const waLink       = phoneToWaLink(phone);
     const startedAt    = fmtTime(conv.human_started_at);
-    const duration     = timeSince(conv.human_started_at);
+    const duration     = conv.duration_seconds != null
+      ? fmtDuration(conv.duration_seconds)
+      : timeSince(conv.human_started_at);
 
     const messagesHtml = conv.last_messages && conv.last_messages.length
       ? conv.last_messages.map(m => `
           <div class="human-msg human-msg--${m.sender}">
             <span class="human-msg__icon">${SENDER_ICON[m.sender] || '💬'}</span>
-            <span class="human-msg__text">${escapeHtml(m.message_text)}</span>
+            <span class="human-msg__text">${escapeHtml(m.text || m.message_text)}</span>
             <span class="human-msg__time">${fmtTime(m.created_at)}</span>
           </div>`).join('')
       : '<p class="human-msg-empty">Sem histórico de mensagens registrado.</p>';
 
+    const extraInfo = [conv.email, conv.cpf_cnpj].filter(Boolean).join(' · ');
+
     return `
-      <div class="human-conv-card" data-phone="${escapeHtml(conv.phone)}">
+      <div class="human-conv-card" data-phone="${escapeHtml(phone)}">
         <div class="human-conv-card__header">
           <div class="human-conv-card__identity">
             <span class="human-conv-card__avatar">👤</span>
@@ -89,6 +105,7 @@ function renderHumanConversations(list) {
               <strong class="human-conv-card__name">${escapeHtml(conv.name || 'Cliente')}</strong>
               <a href="${waLink}" target="_blank" rel="noopener noreferrer"
                  class="human-conv-card__phone">${phoneDisplay}</a>
+              ${extraInfo ? `<span class="human-conv-card__extra">${escapeHtml(extraInfo)}</span>` : ''}
             </div>
           </div>
           <div class="human-conv-card__meta">
@@ -104,7 +121,7 @@ function renderHumanConversations(list) {
           <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn-wa">
             📱 Abrir WhatsApp
           </a>
-          <button class="btn-end-human btn-danger" data-phone="${escapeHtml(conv.phone)}">
+          <button class="btn-end-human btn-danger" data-phone="${escapeHtml(phone)}">
             ✓ Encerrar Conversa
           </button>
         </div>
@@ -118,8 +135,8 @@ function renderHumanConversations(list) {
 
 // ── loadHumanConversations ────────────────────────────────────────────────────
 async function loadHumanConversations() {
-  const list = await DashboardAPI.getHumanConversations();
-  renderHumanConversations(list);
+  const data = await DashboardAPI.getHumanConversations();
+  renderHumanConversations(data);
 }
 
 // ── handleEndHuman ────────────────────────────────────────────────────────────

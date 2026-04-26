@@ -108,8 +108,8 @@ const DashboardAPI = {
     }
   },
 
-  async getHumanConversations() {
-    return await this._get('/api/conversations/human-active') ?? [];
+  async getHumanConversations(limit = 50) {
+    return await this._get(`/api/conversations/human-active?limit=${limit}`) ?? { total: 0, conversations: [] };
   },
 
   async endHumanConversation(from) {
