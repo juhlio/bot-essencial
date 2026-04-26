@@ -22,4 +22,26 @@ async function saveMessageToHistory(from, message, sender = 'client') {
   }
 }
 
-module.exports = { saveMessageToHistory };
+async function getMessagesByPhone(from, limit = 50) {
+  const { getPool } = require('../services/database');
+  const pool = getPool();
+  if (!pool) {
+    logger.warn('getMessagesByPhone: banco indisponível');
+    return [];
+  }
+  try {
+    const result = await pool.query(
+      `SELECT * FROM message_history
+       WHERE phone_from = $1
+       ORDER BY created_at DESC
+       LIMIT $2`,
+      [from, limit]
+    );
+    return result.rows;
+  } catch (err) {
+    logger.error(`getMessagesByPhone error: ${err.message}`);
+    return [];
+  }
+}
+
+module.exports = { saveMessageToHistory, getMessagesByPhone };
