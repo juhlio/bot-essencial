@@ -6,7 +6,7 @@ process.env.CNPJ_API_URL = '';
 process.env.BOT_CLOSE_TIMEOUT_MIN = '40';
 delete process.env.REDIS_URL;
 
-const { handleMessage } = require('../src/handlers/botHandler');
+const { handleMessage, detectHumanRequest, transferToHuman } = require('../src/handlers/botHandler');
 
 // Cada teste usa um número único para evitar interferência de estado
 let phoneCounter = 1000;
@@ -207,6 +207,71 @@ describe('Controle de erros', () => {
     // nome válido — avança de step
     const replies = await handleMessage(phone, 'Pedro Santos', 'Test');
     assert.ok(replies[0].includes('CNPJ ou CPF'), 'deve avançar para askDocument');
+  });
+});
+
+// ─── Handoff humano ───────────────────────────────────────────────────────────
+describe('detectHumanRequest', () => {
+  it('retorna true para "quero falar com humano"', () => {
+    assert.equal(detectHumanRequest('quero falar com humano'), true);
+  });
+
+  it('retorna true para "preciso falar com um agente"', () => {
+    assert.equal(detectHumanRequest('preciso falar com um agente'), true);
+  });
+
+  it('retorna true para variações de supervisor e gerente', () => {
+    assert.equal(detectHumanRequest('quero falar com o supervisor'), true);
+    assert.equal(detectHumanRequest('me passa pro gerente'), true);
+  });
+
+  it('é case-insensitive', () => {
+    assert.equal(detectHumanRequest('HUMANO'), true);
+    assert.equal(detectHumanRequest('Agente'), true);
+  });
+
+  it('retorna false para mensagens comuns', () => {
+    assert.equal(detectHumanRequest('qual o preço?'), false);
+    assert.equal(detectHumanRequest('oi'), false);
+    assert.equal(detectHumanRequest(''), false);
+  });
+});
+
+describe('transferToHuman', () => {
+  it('atualiza os campos da sessão corretamente', () => {
+    const session = { step: 'awaiting_name', handler_type: 'bot', previous_step: null, human_started_at: null };
+    const before = new Date();
+    const msg = transferToHuman(session);
+    const after = new Date();
+
+    assert.equal(session.handler_type, 'human');
+    assert.equal(session.previous_step, 'awaiting_name');
+    assert.ok(session.human_started_at >= before && session.human_started_at <= after);
+    assert.ok(msg.includes('agente'));
+  });
+
+  it('retorna a mensagem de transferência esperada', () => {
+    const session = { step: 'awaiting_email', handler_type: 'bot', previous_step: null, human_started_at: null };
+    const msg = transferToHuman(session);
+    assert.equal(msg, 'Um agente entrará em contato em breve!');
+  });
+});
+
+describe('handleMessage: handoff humano integrado', () => {
+  it('retorna mensagem de transferência quando detecta pedido de humano', async () => {
+    const phone = nextPhone();
+    await handleMessage(phone, 'oi', 'Test'); // inicia sessão no greeting
+    const replies = await handleMessage(phone, 'quero falar com um agente', 'Test');
+    assert.equal(replies[0], 'Um agente entrará em contato em breve!');
+  });
+
+  it('não processa mensagens do bot após transferência (handler_type = human)', async () => {
+    const phone = nextPhone();
+    await handleMessage(phone, 'oi', 'Test');
+    await handleMessage(phone, 'preciso falar com humano', 'Test');
+    // Em atendimento humano, mensagens são apenas registradas → retorna array vazio
+    const replies = await handleMessage(phone, 'qual o preço?', 'Test');
+    assert.equal(replies.length, 0, 'não deve responder nada enquanto em atendimento humano');
   });
 });
 

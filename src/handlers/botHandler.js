@@ -8,6 +8,20 @@ const logger = require('../utils/logger');
 
 const RESET_KEYWORDS = ['reiniciar', 'recomeçar', 'voltar', 'menu'];
 
+const HUMAN_KEYWORDS = ['humano', 'agente', 'falar com agente', 'supervisor', 'gerente', 'comercial'];
+
+function detectHumanRequest(message) {
+  const normalized = (message || '').toLowerCase();
+  return HUMAN_KEYWORDS.some((kw) => normalized.includes(kw));
+}
+
+function transferToHuman(session) {
+  session.previous_step = session.step;
+  session.handler_type = 'human';
+  session.human_started_at = new Date();
+  return 'Um agente entrará em contato em breve!';
+}
+
 function logPayload(phoneNumber) {
   const payload = sessionStore.toPayload(phoneNumber);
   logger.info(`Lead finalizado [${phoneNumber}]: ${JSON.stringify(payload)}`);
@@ -232,6 +246,18 @@ async function handleMessage(from, body, profileName) {
 
   const session = await sessionStore.get(from);
 
+  // Detecção de pedido de atendimento humano
+  if (detectHumanRequest(input) && session.handler_type !== 'human') {
+    const msg = transferToHuman(session);
+    await sessionStore.update(from, session);
+    return [msg];
+  }
+
+  // Sessão em atendimento humano → apenas registra, não processa
+  if (session.handler_type === 'human') {
+    return [];
+  }
+
   // Sessão já concluída → reinicia
   if (session.completed) {
     const fresh = await sessionStore.reset(from);
@@ -258,4 +284,4 @@ async function handleMessage(from, body, profileName) {
   return result;
 }
 
-module.exports = { handleMessage };
+module.exports = { handleMessage, detectHumanRequest, transferToHuman };
