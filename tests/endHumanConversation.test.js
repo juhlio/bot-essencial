@@ -16,13 +16,25 @@ let baseUrl;
 let authToken;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-async function postWebhook(from, body) {
-  const params = new URLSearchParams({ From: from, Body: body, ProfileName: 'Test' });
-  await fetch(`${baseUrl}/webhook`, {
+async function postWebhook(phoneNumber, text, name = 'Test') {
+  const payload = {
+    data: {
+      key: {
+        remoteJid: `${phoneNumber}@s.whatsapp.net`,
+        id: `test-${Date.now()}`,
+        fromMe: false,
+      },
+      message: { conversation: text },
+      pushName: name,
+    },
+  };
+  const res = await fetch(`${baseUrl}/webhook`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
+  const ct = res.headers.get('content-type') || '';
+  return { status: res.status, contentType: ct, json: ct.includes('json') ? await res.json() : null };
 }
 
 async function endHuman(from, body = {}) {
@@ -45,7 +57,7 @@ async function setupHumanSession(from) {
 
 let counter = 8000;
 function nextPhone() {
-  return `whatsapp:+550000${String(counter++).padStart(7, '0')}`;
+  return `5500008${String(counter++).padStart(6, '0')}`;
 }
 
 before(async () => {
@@ -120,7 +132,7 @@ describe('POST /api/conversations/:from/end-human — sucesso', () => {
 // ─── Erros ────────────────────────────────────────────────────────────────────
 describe('POST /api/conversations/:from/end-human — erros', () => {
   it('retorna 404 para sessão que nunca existiu', async () => {
-    const phone = `whatsapp:+5500000000000`;
+    const phone = `5500000000000`;
     const { status, body } = await endHuman(phone);
     assert.equal(status, 404);
     assert.ok(body.error, 'deve ter mensagem de erro');
@@ -162,14 +174,9 @@ describe('Comportamento após encerrar atendimento humano', () => {
     await setupHumanSession(phone);
     await endHuman(phone);
 
-    // Próxima mensagem ao webhook deve ser processada pelo bot (retorna TwiML)
-    const params = new URLSearchParams({ From: phone, Body: 'oi', ProfileName: 'Test' });
-    const res = await fetch(`${baseUrl}/webhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    });
-    const contentType = res.headers.get('content-type') || '';
-    assert.ok(contentType.includes('text/xml'), 'bot deve voltar a responder com TwiML');
+    // Próxima mensagem deve ser processada pelo bot (retorna JSON success)
+    const { contentType, json } = await postWebhook(phone, 'oi');
+    assert.ok(contentType.includes('application/json'), 'bot deve voltar a responder com JSON');
+    assert.equal(json.status, 'success', 'bot deve processar a mensagem normalmente');
   });
 });

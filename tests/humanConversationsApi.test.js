@@ -16,12 +16,22 @@ let baseUrl;
 let authToken;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-async function postWebhook(from, body) {
-  const params = new URLSearchParams({ From: from, Body: body, ProfileName: 'Test' });
+async function postWebhook(phoneNumber, text, name = 'Test') {
+  const payload = {
+    data: {
+      key: {
+        remoteJid: `${phoneNumber}@s.whatsapp.net`,
+        id: `test-${Date.now()}`,
+        fromMe: false,
+      },
+      message: { conversation: text },
+      pushName: name,
+    },
+  };
   await fetch(`${baseUrl}/webhook`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
 }
 
@@ -39,7 +49,7 @@ async function triggerHandoff(from) {
 
 let counter = 7000;
 function nextPhone() {
-  return `whatsapp:+550000${String(counter++).padStart(7, '0')}`;
+  return `5500007${String(counter++).padStart(6, '0')}`;
 }
 
 before(async () => {
@@ -81,7 +91,6 @@ describe('GET /api/conversations/human-active — sem conversas', () => {
   it('retorna total=0 e conversations=[] quando nenhuma sessão está em modo humano', async () => {
     const { body } = await getHumanActive();
     const humanCount = body.conversations.filter(c => c.phone_from).length;
-    // Pode ter conversas de outros testes rodando; o importante é que a estrutura existe
     assert.equal(body.total, body.conversations.length);
     assert.ok(body.total >= 0);
   });
@@ -133,7 +142,6 @@ describe('GET /api/conversations/human-active — com conversas ativas', () => {
   it('last_messages tem campos sender, text e created_at', async () => {
     const { body } = await getHumanActive();
     const conv = body.conversations.find(c => c.phone_from === testPhone);
-    // last_messages pode ser vazio (sem DB), então testa apenas se houver mensagens
     if (conv.last_messages.length) {
       const msg = conv.last_messages[0];
       assert.ok('sender'     in msg, 'deve ter sender');
@@ -146,8 +154,6 @@ describe('GET /api/conversations/human-active — com conversas ativas', () => {
 
   it('só retorna sessões com handler_type = human', async () => {
     const { body } = await getHumanActive();
-    // Verifica que todos os retornados são de sessões que entraram em handoff
-    // (não há como verificar handler_type diretamente na API, mas o total deve ser >= 1)
     assert.ok(body.total >= 1, 'deve ter ao menos a conversa criada no before');
   });
 });

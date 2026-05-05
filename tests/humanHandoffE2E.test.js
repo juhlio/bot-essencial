@@ -13,7 +13,6 @@ const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 
-// Isola o ambiente dos outros testes
 process.env.DATABASE_URL = '';
 process.env.REDIS_URL = '';
 process.env.BOT_CLOSE_TIMEOUT_MIN = '40';
@@ -29,18 +28,27 @@ let baseUrl;
 let authToken;
 
 // ─── Helpers HTTP ─────────────────────────────────────────────────────────────
-async function postWebhook(from, body) {
-  const params = new URLSearchParams({ From: from, Body: body, ProfileName: 'Test' });
+async function postWebhook(phoneNumber, text, name = 'Test') {
+  const payload = {
+    data: {
+      key: {
+        remoteJid: `${phoneNumber}@s.whatsapp.net`,
+        id: `test-${Date.now()}`,
+        fromMe: false,
+      },
+      message: { conversation: text },
+      pushName: name,
+    },
+  };
   const res = await fetch(`${baseUrl}/webhook`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
   const ct = res.headers.get('content-type') || '';
   return {
     status: res.status,
     contentType: ct,
-    text: ct.includes('json') ? null : await res.text(),
     json: ct.includes('json') ? await res.json() : null,
   };
 }
@@ -66,7 +74,7 @@ async function getHumanActive() {
 
 let counter = 6000;
 function nextPhone() {
-  return `whatsapp:+550000${String(counter++).padStart(7, '0')}`;
+  return `5500006${String(counter++).padStart(6, '0')}`;
 }
 
 // ─── Setup / Teardown ─────────────────────────────────────────────────────────
@@ -94,10 +102,10 @@ describe('Teste 1 — Cliente pede atendimento humano', () => {
     await postWebhook(phone, 'oi');           // inicia sessão → step: awaiting_name
   });
 
-  it('resposta do webhook contém "agente entrará em contato"', async () => {
+  it('webhook retorna { status: "success" } para handoff', async () => {
     const r = await postWebhook(phone, 'quero falar com um agente');
-    assert.ok(r.contentType.includes('text/xml'), 'deve retornar TwiML');
-    assert.ok(r.text.includes('agente'), 'deve mencionar agente na resposta');
+    assert.ok(r.contentType.includes('application/json'), 'deve retornar JSON');
+    assert.equal(r.json.status, 'success');
   });
 
   it('handler_type fica como "human"', () => {
@@ -145,18 +153,17 @@ describe('Teste 2 — Mensagens humanas não processadas pelo bot', () => {
 
   it('webhook retorna JSON { status: "saved_for_human" }', async () => {
     const r = await postWebhook(phone, 'qual é o preço?');
-    assert.ok(r.contentType.includes('application/json'), 'deve ser JSON, não TwiML');
+    assert.ok(r.contentType.includes('application/json'), 'deve ser JSON');
     assert.equal(r.json.status, 'saved_for_human');
   });
 
-  it('bot NÃO responde (sem mensagem TwiML)', async () => {
+  it('bot NÃO processa como bot (retorna saved_for_human, não success)', async () => {
     const r = await postWebhook(phone, 'tenho urgência');
-    assert.ok(!r.contentType.includes('text/xml'), 'não deve retornar TwiML');
+    assert.equal(r.json.status, 'saved_for_human', 'não deve processar como bot');
   });
 
   it('step da sessão não muda após mensagem em modo humano', () => {
     const stepBefore = sessionStore.get(phone).step;
-    // Enviou 2 mensagens em modo humano acima — step deve continuar o mesmo
     const stepAfter = sessionStore.get(phone).step;
     assert.equal(stepBefore, stepAfter);
   });
@@ -186,7 +193,6 @@ describe('Teste 3 — Agente encerra conversa humana', () => {
     phone = nextPhone();
     await postWebhook(phone, 'oi');
     await postWebhook(phone, 'quero falar com o supervisor');  // handoff em awaiting_name
-    // Aguarda ao menos 1ms para garantir duration > 0
     await new Promise(r => setTimeout(r, 10));
     const r = await endHuman(phone);
     endResult = r;
@@ -248,13 +254,13 @@ describe('Teste 4 — Bot retoma atendimento após encerramento humano', () => {
     await endHuman(phone);                                   // encerra → volta para awaiting_name
   });
 
-  it('webhook volta a retornar TwiML (bot ativo)', async () => {
-    const r = await postWebhook(phone, 'João da Silva');     // responde ao step awaiting_name
-    assert.ok(r.contentType.includes('text/xml'), 'bot deve responder com TwiML');
+  it('webhook volta a retornar JSON { status: "success" } (bot ativo)', async () => {
+    const r = await postWebhook(phone, 'João da Silva');
+    assert.ok(r.contentType.includes('application/json'), 'bot deve responder com JSON');
+    assert.equal(r.json.status, 'success');
   });
 
   it('bot avança o step normalmente após retomada', async () => {
-    // Usa phone próprio para não depender do estado deixado pelo it anterior
     const p = nextPhone();
     await postWebhook(p, 'oi');
     await postWebhook(p, 'quero falar com humano');
@@ -285,7 +291,7 @@ describe('Teste 4 — Bot retoma atendimento após encerramento humano', () => {
 // =============================================================================
 describe('Teste 5 — Tratamento de erros', () => {
   it('encerrar sessão que nunca existiu → 404', async () => {
-    const phone = `whatsapp:+5500000000099`;
+    const phone = `5500000000099`;
     const r = await endHuman(phone);
     assert.equal(r.status, 404);
     assert.ok(r.body.error, 'deve retornar mensagem de erro');
@@ -293,7 +299,7 @@ describe('Teste 5 — Tratamento de erros', () => {
 
   it('encerrar sessão em modo bot → 409', async () => {
     const phone = nextPhone();
-    await postWebhook(phone, 'oi');  // cria sessão em modo bot (handler_type undefined/'bot')
+    await postWebhook(phone, 'oi');  // cria sessão em modo bot
     const r = await endHuman(phone);
     assert.equal(r.status, 409, 'deve retornar 409 quando sessão não está em modo humano');
     assert.ok(r.body.error, 'deve ter mensagem de erro explicativa');
@@ -335,7 +341,8 @@ describe('Teste 5 — Tratamento de erros', () => {
 
     await postWebhook(phoneB, 'oi');
     const rB = await postWebhook(phoneB, 'Fabio Santos');  // B responde normalmente
-    assert.ok(rB.contentType.includes('text/xml'), 'sessão B deve continuar como bot (TwiML)');
+    assert.ok(rB.contentType.includes('application/json'), 'sessão B deve continuar como bot (JSON)');
+    assert.equal(rB.json.status, 'success', 'sessão B deve retornar success, não saved_for_human');
     assert.notEqual(sessionStore.get(phoneB).handler_type, 'human', 'phoneB não deve estar em modo humano');
   });
 });
