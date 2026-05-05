@@ -75,12 +75,51 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  evolution:
+    image: atendai/evolution-api:latest
+    container_name: essencial-evolution
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_URL=http://localhost:8080
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-changeme}
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+      - LOG_LEVEL=ERROR
+      - LOG_COLOR=true
+      - LOG_BAILEYS=error
+      - DEL_INSTANCE=false
+      - DATABASE_ENABLED=false
+      - REDIS_ENABLED=false
+      - CORS_ORIGIN=*
+      - CORS_METHODS=GET,POST,PUT,DELETE
+      - CORS_CREDENTIALS=true
+      - WEBHOOK_GLOBAL_ENABLED=false
+      - CONFIG_SESSION_PHONE_CLIENT=Essencial Bot
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+    volumes:
+      - evolution-data:/evolution/instances
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   bot-logs:
     driver: local
   postgres-data:
     driver: local
   redis-data:
+    driver: local
+  evolution-data:
     driver: local
 
 networks:
