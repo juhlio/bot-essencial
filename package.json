@@ -1,7 +1,7 @@
 {
   "name": "essencial-bot",
   "version": "1.0.0",
-  "description": "Bot de atendimento WhatsApp usando Twilio + Express",
+  "description": "Bot de atendimento WhatsApp usando Evolution API + Express",
   "main": "src/index.js",
   "engines": {
     "node": ">=18"
@@ -20,7 +20,6 @@
     "express": "^4.19.2",
     "ioredis": "^5.10.1",
     "pg": "^8.20.0",
-    "twilio": "^5.3.0",
     "winston": "^3.13.0"
   },
   "devDependencies": {

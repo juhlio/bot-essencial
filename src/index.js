@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
-const { twiml: { MessagingResponse } } = require('twilio');
+const evolutionService = require('./services/evolutionService');
 
 const logger = require('./utils/logger');
 const { sessionStore } = require('./services/sessionStore');
@@ -479,42 +479,40 @@ app.post('/api/conversations/:from/end-human', async (req, res) => {
 
 // ─── POST /webhook ───────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
-  const from = req.body.From || '';
-  const body = (req.body.Body || '').trim();
-  const profileName = req.body.ProfileName || '';
+  const { data } = req.body || {};
 
-  logger.info(`Mensagem recebida de ${from} (${profileName}): ${body}`);
+  // Ignorar eventos sem estrutura de mensagem ou enviados pelo próprio bot
+  if (!data?.key?.remoteJid || !data?.message || data.key.fromMe) {
+    return res.json({ status: 'ignored' });
+  }
+
+  const phoneNumber = data.key.remoteJid.replace(/@.*$/, '');
+  const messageText = (
+    data.message.conversation ||
+    data.message.extendedTextMessage?.text ||
+    ''
+  ).trim();
+  const senderName = data.pushName || '';
+
+  logger.info(`Mensagem recebida de ${phoneNumber} (${senderName}): ${messageText}`);
 
   // Sessão em atendimento humano: só salva histórico, não processa como bot
-  const session = await sessionStore.get(from);
+  const session = await sessionStore.get(phoneNumber);
   if (session.handler_type === 'human') {
-    await saveMessageToHistory(from, body, 'client');
-    return res.status(200).json({ status: 'saved_for_human' });
+    await saveMessageToHistory(phoneNumber, messageText, 'client');
+    return res.json({ status: 'saved_for_human' });
   }
-
-  const twiml = new MessagingResponse();
 
   try {
-    const replies = await handleMessage(from, body, profileName);
+    const replies = await handleMessage(phoneNumber, messageText, senderName);
     for (const reply of replies) {
-      twiml.message(reply);
+      await evolutionService.sendMessage(phoneNumber, reply);
     }
   } catch (err) {
-    logger.error(`Erro ao processar mensagem de ${from}: ${err.message}`);
-    twiml.message(
-      'Desculpe, ocorreu um erro inesperado. Nossa equipe já foi notificada.\n\nPlantão 24h: *0800 779 9009*'
-    );
+    logger.error(`Erro ao processar mensagem de ${phoneNumber}: ${err.message}`);
   }
 
-  res.set('Content-Type', 'text/xml');
-  res.send(twiml.toString());
-});
-
-// ─── POST /status ────────────────────────────────────────────────────────────
-app.post('/status', (req, res) => {
-  const { MessageSid, MessageStatus, To } = req.body;
-  logger.info(`Status [${MessageSid}] → ${MessageStatus} para ${To}`);
-  res.sendStatus(200);
+  res.json({ status: 'success' });
 });
 
 // ─── Limpeza periódica de sessões ────────────────────────────────────────────
