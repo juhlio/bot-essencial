@@ -167,7 +167,7 @@ main() {
       start_services
       wait_healthy postgres 60
       wait_healthy redis 30
-      wait_healthy bot 120
+      wait_healthy bot 150
       run_migrations
       show_status
       ;;
