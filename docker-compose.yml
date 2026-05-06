@@ -90,8 +90,9 @@ services:
       - LOG_COLOR=true
       - LOG_BAILEYS=error
       - DEL_INSTANCE=false
-      - DATABASE_ENABLED=false
+      - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://essencial:4203c92e9047e0595feb411311d286ff@postgres:5432/essencial_bot
       - REDIS_ENABLED=false
       - CORS_ORIGIN=*
       - CORS_METHODS=GET,POST,PUT,DELETE
@@ -99,6 +100,9 @@ services:
       - WEBHOOK_GLOBAL_ENABLED=false
       - CONFIG_SESSION_PHONE_CLIENT=Essencial Bot
       - CONFIG_SESSION_PHONE_NAME=Chrome
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - evolution-data:/evolution/instances
     healthcheck:
