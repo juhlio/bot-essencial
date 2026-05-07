@@ -86,9 +86,9 @@ services:
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-changeme}
       - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
-      - LOG_LEVEL=DEBUG
-      - LOG_COLOR=false
-      - LOG_BAILEYS=verbose
+      - LOG_LEVEL=LOG
+      - LOG_COLOR=true
+      - LOG_BAILEYS=debug
       - DEL_INSTANCE=false
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
