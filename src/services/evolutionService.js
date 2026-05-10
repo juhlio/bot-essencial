@@ -49,7 +49,7 @@ async function sendMessage(phoneNumber, message) {
   try {
     const data = await _request('POST', `/message/sendText/${INSTANCE}`, {
       number,
-      text: message,
+      textMessage: { text: message },
     });
 
     const messageId = data?.key?.id;
