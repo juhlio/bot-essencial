@@ -479,6 +479,7 @@ app.post('/api/conversations/:from/end-human', async (req, res) => {
 
 // ─── POST /webhook ───────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
+  logger.warn(`[DEBUG WEBHOOK] body: ${JSON.stringify(req.body)}`);
   const { data } = req.body || {};
 
   // Ignorar eventos sem estrutura de mensagem ou enviados pelo próprio bot
