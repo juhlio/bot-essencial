@@ -44,7 +44,7 @@ async function sendMessage(phoneNumber, message) {
     return { success: false, reason: 'missing_api_key' };
   }
 
-  const number = phoneNumber.replace(/\D/g, '');
+  const number = phoneNumber.includes('@') ? phoneNumber : phoneNumber.replace(/\D/g, '');
 
   try {
     const data = await _request('POST', `/message/sendText/${INSTANCE}`, {

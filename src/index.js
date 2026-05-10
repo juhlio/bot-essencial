@@ -479,7 +479,6 @@ app.post('/api/conversations/:from/end-human', async (req, res) => {
 
 // ─── POST /webhook ───────────────────────────────────────────────────────────
 app.post('/webhook', async (req, res) => {
-  logger.warn(`[DEBUG WEBHOOK] body: ${JSON.stringify(req.body)}`);
   const { data } = req.body || {};
 
   // Ignorar eventos sem estrutura de mensagem ou enviados pelo próprio bot
@@ -487,7 +486,8 @@ app.post('/webhook', async (req, res) => {
     return res.json({ status: 'ignored' });
   }
 
-  const phoneNumber = data.key.remoteJid.replace(/@.*$/, '');
+  const remoteJid = data.key.remoteJid;
+  const phoneNumber = remoteJid.replace(/@.*$/, '');
   const messageText = (
     data.message.conversation ||
     data.message.extendedTextMessage?.text ||
@@ -507,7 +507,7 @@ app.post('/webhook', async (req, res) => {
   try {
     const replies = await handleMessage(phoneNumber, messageText, senderName);
     for (const reply of replies) {
-      await evolutionService.sendMessage(phoneNumber, reply);
+      await evolutionService.sendMessage(remoteJid, reply);
     }
   } catch (err) {
     logger.error(`Erro ao processar mensagem de ${phoneNumber}: ${err.message}`);
