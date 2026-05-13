@@ -216,6 +216,7 @@ const stepHandlers = {
       return [await getMessage('outOfIcp', { name: session.name })];
     }
 
+    session.isIcp = true;
     session.completed = true;
     persistLead(session);
     return [await buildClosing(session)];
